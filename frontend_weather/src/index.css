@@ -1,0 +1,12 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+/* MapLibre popups: let MUI typography control spacing. */
+.maplibregl-popup-content {
+  padding: 12px 14px;
+  border-radius: 8px;
+}
