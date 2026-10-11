@@ -4,6 +4,8 @@ import { Layer, Source } from 'react-map-gl/maplibre'
 import type { Heatmap } from '../../api/schemas'
 import { RISK_COLORS } from '../../theme'
 
+const MAX_LEVEL = 4
+
 type Props = {
   heatmap: Heatmap
   hour: number
@@ -15,12 +17,19 @@ export function HeatmapLayer({ heatmap, hour }: Props) {
   const data = useMemo<FeatureCollection<Point>>(
     () => ({
       type: 'FeatureCollection',
-      features: heatmap.hours.flatMap((frame) =>
-        frame.points.map(([lon, lat, intensity]) => ({
-          type: 'Feature',
-          geometry: { type: 'Point', coordinates: [lon, lat] },
-          properties: { hour: frame.hour, intensity },
-        })),
+      features: heatmap.points.flatMap(([lon, lat], point) =>
+        heatmap.levels[point].flatMap((level, h) =>
+          // Low (0) and unknown (-1) add nothing to a heatmap, so they are left out.
+          level > 0
+            ? [
+                {
+                  type: 'Feature' as const,
+                  geometry: { type: 'Point' as const, coordinates: [lon, lat] },
+                  properties: { hour: h, weight: level / MAX_LEVEL },
+                },
+              ]
+            : [],
+        ),
       ),
     }),
     [heatmap],
@@ -33,24 +42,24 @@ export function HeatmapLayer({ heatmap, hour }: Props) {
         type="heatmap"
         filter={['==', ['get', 'hour'], hour]}
         paint={{
-          'heatmap-weight': ['get', 'intensity'],
-          'heatmap-intensity': 0.35,
+          'heatmap-weight': ['get', 'weight'],
+          // Tuned for Django's points, which sit 0.1 degrees apart along the routes.
+          'heatmap-intensity': 0.12,
           // Doubles with each zoom level so the blobs keep their size on the ground.
-          'heatmap-radius': ['interpolate', ['exponential', 2], ['zoom'], 3, 12, 9, 768],
-          'heatmap-opacity': 0.55,
+          'heatmap-radius': ['interpolate', ['exponential', 2], ['zoom'], 3, 8, 9, 512],
+          'heatmap-opacity': 0.6,
           'heatmap-color': [
             'interpolate',
             ['linear'],
             ['heatmap-density'],
             0,
-            'rgba(0, 0, 0, 0)',
-            0.15,
-            RISK_COLORS.low,
-            0.35,
+            // Transparent yellow, so the faint edges fade out instead of turning grey.
+            'rgba(251, 192, 45, 0)',
+            0.2,
             RISK_COLORS.moderate,
-            0.55,
+            0.45,
             RISK_COLORS.high,
-            0.75,
+            0.7,
             RISK_COLORS.severe,
             1,
             RISK_COLORS.no_travel,

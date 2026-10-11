@@ -10,3 +10,8 @@ body,
   padding: 12px 14px;
   border-radius: 8px;
 }
+
+/* Popups open above the legend and other overlays placed on the map. */
+.maplibregl-popup {
+  z-index: 5;
+}

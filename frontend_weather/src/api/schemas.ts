@@ -20,29 +20,37 @@ export const suggestResponseSchema = z.object({
   suggestions: z.array(placeSchema),
 })
 
+// Wind, rain and snow are what the risk rules use. Temperature is shown for
+// information only.
 export const weatherSchema = z.object({
-  condition: z.string(),
-  temperature_c: z.number(),
-  wind_speed_mph: z.number(),
   wind_gust_mph: z.number(),
-  rain_mm: z.number(),
-  snow_cm: z.number(),
-  visibility_miles: z.number(),
+  wind_speed_mph: z.number(),
+  rain_in: z.number(),
+  snow_in: z.number(),
+  temperature_c: z.number().nullable(),
 })
 export type Weather = z.infer<typeof weatherSchema>
 
-// weather, risk_level, deciding_condition and load_rule are null together
-// when no forecast was available for the checkpoint.
+// weather, risk_level, levels and deciding_condition are null together when
+// no forecast was available for the checkpoint (data_status "missing").
+// load_rule is the text of the load rule that applied, or null if none did.
 export const checkpointSchema = z.object({
   id: z.string(),
+  seq: z.number().int(),
   mile: z.number(),
   lat: z.number(),
   lon: z.number(),
   eta: z.string(),
   timezone: z.string(),
+  // Miles of road this checkpoint stands for (half way to each neighbour).
+  miles_represented: z.number(),
   risk_level: riskLevelSchema.nullable(),
+  levels: z
+    .object({ wind: riskLevelSchema, rain: riskLevelSchema, snow: riskLevelSchema })
+    .nullable(),
   deciding_condition: z.string().nullable(),
   load_rule: z.string().nullable(),
+  data_status: z.enum(['ok', 'missing']),
   weather: weatherSchema.nullable(),
 })
 export type Checkpoint = z.infer<typeof checkpointSchema>
@@ -57,13 +65,18 @@ export const routeSchema = z.object({
   distance_miles: z.number(),
   duration_minutes: z.number(),
   arrival_time: z.string(),
-  average_risk: riskLevelSchema,
+  // 1 is the best route.
+  rank: z.number().int(),
+  // Mile-weighted mean of the levels, 0 (Low) to 4 (No Travel); null when no
+  // forecast was available.
+  average_risk: z.number().nullable(),
   miles_by_level: z.object({
     low: z.number(),
     moderate: z.number(),
     high: z.number(),
     severe: z.number(),
     no_travel: z.number(),
+    unknown: z.number(),
   }),
   worst_segment: z
     .object({
@@ -77,21 +90,25 @@ export const routeSchema = z.object({
 })
 export type Route = z.infer<typeof routeSchema>
 
-export const WARNING_CODES = ['no_travel_all_routes', 'fewer_routes', 'missing_weather'] as const
+export const WARNING_CODES = [
+  'no_travel_all_routes',
+  'fewer_routes',
+  'missing_weather',
+  'route_notice',
+] as const
 export const warningSchema = z.object({
   code: z.enum(WARNING_CODES),
   message: z.string(),
 })
 export type TripWarning = z.infer<typeof warningSchema>
 
+// Risk along the trip corridor for hours 0-48. `levels[p][h]` is the level of
+// point `p` at `hour0 + h` hours: 0 (Low) to 4 (No Travel), or -1 if unknown.
 export const heatmapSchema = z.object({
-  hours: z.array(
-    z.object({
-      hour: z.number().int(),
-      // [lon, lat, intensity 0..1]
-      points: z.array(z.tuple([z.number(), z.number(), z.number()])),
-    }),
-  ),
+  hour0: z.string(),
+  // [lon, lat]
+  points: z.array(z.tuple([z.number(), z.number()])),
+  levels: z.array(z.array(z.number().int())),
 })
 export type Heatmap = z.infer<typeof heatmapSchema>
 
@@ -122,4 +139,6 @@ export type TripPlanRequest = {
 export const apiErrorSchema = z.object({
   detail: z.string(),
   field_errors: z.record(z.string(), z.string()).optional(),
+  // false when trying again cannot help (bad input, no route).
+  retryable: z.boolean().optional(),
 })

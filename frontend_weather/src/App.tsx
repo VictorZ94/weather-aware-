@@ -1,8 +1,12 @@
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import Box from '@mui/material/Box'
+import ButtonBase from '@mui/material/ButtonBase'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useState } from 'react'
 import type { TripPlan } from './api/schemas'
@@ -26,6 +30,7 @@ function App() {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
   const [hour, setHour] = useState(0)
   const [showTrucks, setShowTrucks] = useState(false)
+  const [panelOpen, setPanelOpen] = useState(true)
 
   // A new plan starts from its recommended route at departure time.
   const [shownPlan, setShownPlan] = useState<TripPlan | null>(null)
@@ -46,7 +51,10 @@ function App() {
     >
       <Box
         component="aside"
+        id="trip-panel"
         sx={{
+          // Hidden, not unmounted, so the form keeps what was typed.
+          display: panelOpen ? 'block' : 'none',
           width: { md: PANEL_WIDTH },
           flexShrink: 0,
           overflowY: { md: 'auto' },
@@ -81,7 +89,12 @@ function App() {
           </Paper>
 
           {error && !isLoading && (
-            <ErrorAlert message={error.message} onRetry={retry} retrying={isLoading} />
+            <ErrorAlert
+              message={error.message}
+              // No Retry for problems the driver has to fix first (bad input, no route).
+              onRetry={error.retryable ? retry : null}
+              retrying={isLoading}
+            />
           )}
 
           {plan && (
@@ -102,7 +115,7 @@ function App() {
         sx={{
           // Phones: a fixed-height map under the panel. Desktop: fill the rest.
           flex: { xs: 'none', md: 1 },
-          height: { xs: '85dvh', md: 'auto' },
+          height: { xs: panelOpen ? '85dvh' : '100dvh', md: 'auto' },
           minWidth: 0,
           display: 'flex',
           flexDirection: 'column',
@@ -118,6 +131,31 @@ function App() {
               showTrucks={showTrucks}
             />
           </ErrorBoundary>
+
+          <Tooltip title={panelOpen ? 'Hide panel' : 'Show panel'} placement="right">
+            <ButtonBase
+              onClick={() => setPanelOpen(!panelOpen)}
+              aria-label={panelOpen ? 'Hide panel' : 'Show panel'}
+              aria-expanded={panelOpen}
+              aria-controls="trip-panel"
+              sx={{
+                position: 'absolute',
+                left: 0,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                // Above the loading overlay, so the panel can be toggled while a plan loads.
+                zIndex: 6,
+                width: 24,
+                height: 56,
+                bgcolor: 'background.paper',
+                borderRadius: '0 8px 8px 0',
+                boxShadow: 2,
+                '&:hover': { bgcolor: 'grey.100' },
+              }}
+            >
+              {panelOpen ? <ChevronLeftIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+            </ButtonBase>
+          </Tooltip>
 
           {!plan && !isLoading && (
             <Paper
@@ -143,7 +181,8 @@ function App() {
           <ForecastSlider
             hour={hour}
             onHourChange={setHour}
-            departureTime={plan.departure_time}
+            // Hour 0 of the forecast is the departure rounded down to the hour.
+            startTime={plan.heatmap.hour0}
             timezone={plan.origin.timezone}
             showTrucks={showTrucks}
             onShowTrucksChange={setShowTrucks}

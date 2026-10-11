@@ -6,7 +6,7 @@ from django.test import override_settings
 from rest_framework.test import APITestCase
 from tenacity import wait_none
 
-from .here import HereClient
+from here.client import HereClient
 
 URL = '/api/places/suggest/'
 FAKE_KEY = 'test-here-key'
@@ -137,7 +137,7 @@ class SuggestPlacesTests(APITestCase):
         response = self.client.get(URL, {'q': 'x' * 101})
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json(), {'detail': 'Search text is too long.'})
+        self.assertEqual(response.json()['detail'], 'Search text is too long.')
         self.assertEqual(self.requests, [])
 
     def test_repeated_text_is_served_from_cache(self):
@@ -154,17 +154,17 @@ class SuggestPlacesTests(APITestCase):
         response = self.client.get(URL, {'q': 'den'})
 
         self.assertEqual(response.status_code, 503)
-        self.assertEqual(response.json(), {'detail': 'Place search is not configured.'})
+        self.assertEqual(response.json()['detail'], 'Place search is not configured.')
         self.assertEqual(self.requests, [])
 
     def test_rejected_key_is_not_retried_and_not_leaked(self):
         self.here_returns(httpx.Response(401, json={'error': 'Unauthorized', 'apiKey': FAKE_KEY}))
 
-        with self.assertLogs('places.here', level='ERROR') as logs:
+        with self.assertLogs('here.client', level='ERROR') as logs:
             response = self.client.get(URL, {'q': 'den'})
 
         self.assertEqual(response.status_code, 502)
-        self.assertEqual(response.json(), {'detail': 'Place search is unavailable.'})
+        self.assertEqual(response.json()['detail'], 'Place search is unavailable.')
         self.assertEqual(len(self.requests), 1)
         self.assertNotIn(FAKE_KEY, response.content.decode())
         self.assertNotIn(FAKE_KEY, ' '.join(logs.output))
@@ -182,11 +182,11 @@ class SuggestPlacesTests(APITestCase):
             )
         )
 
-        with self.assertLogs('places.here', level='ERROR') as logs:
+        with self.assertLogs('here.client', level='ERROR') as logs:
             response = self.client.get(URL, {'q': 'den'})
 
         self.assertEqual(response.status_code, 502)
-        self.assertEqual(response.json(), {'detail': 'Place search is unavailable.'})
+        self.assertEqual(response.json()['detail'], 'Place search is unavailable.')
         self.assertEqual(len(self.requests), 1)
         self.assertIn("Illegal input for parameter 'resultTypes'", logs.output[0])
         self.assertIn("Unsupported value: 'address'", logs.output[0])
@@ -195,28 +195,28 @@ class SuggestPlacesTests(APITestCase):
     def test_here_rate_limit_is_reported_as_busy(self):
         self.here_returns(httpx.Response(429))
 
-        with self.assertLogs('places.here', level='WARNING'):
+        with self.assertLogs('here.client', level='WARNING'):
             response = self.client.get(URL, {'q': 'den'})
 
         self.assertEqual(response.status_code, 503)
-        self.assertEqual(response.json(), {'detail': 'Place search is busy. Try again shortly.'})
+        self.assertEqual(response.json()['detail'], 'Place search is busy. Try again shortly.')
         self.assertEqual(len(self.requests), 1)
 
     def test_timeout_is_tried_three_times_then_reported(self):
         self.here_returns(httpx.ReadTimeout('timed out'))
 
-        with self.assertLogs('places.here', level='WARNING') as logs:
+        with self.assertLogs('here.client', level='WARNING') as logs:
             response = self.client.get(URL, {'q': 'den'})
 
         self.assertEqual(response.status_code, 504)
-        self.assertEqual(response.json(), {'detail': 'Place search took too long.'})
+        self.assertEqual(response.json()['detail'], 'Place search took too long.')
         self.assertEqual(len(self.requests), 3)
         self.assertNotIn(FAKE_KEY, ' '.join(logs.output))
 
     def test_server_error_is_tried_three_times_then_reported(self):
         self.here_returns(httpx.Response(503))
 
-        with self.assertLogs('places.here', level='WARNING'):
+        with self.assertLogs('here.client', level='WARNING'):
             response = self.client.get(URL, {'q': 'den'})
 
         self.assertEqual(response.status_code, 502)
@@ -234,7 +234,7 @@ class SuggestPlacesTests(APITestCase):
     def test_failures_are_not_cached(self):
         self.here_returns(httpx.Response(429), httpx.Response(200, json={'items': [DENVER]}))
 
-        with self.assertLogs('places.here', level='WARNING'):
+        with self.assertLogs('here.client', level='WARNING'):
             self.client.get(URL, {'q': 'den'})
         response = self.client.get(URL, {'q': 'den'})
 

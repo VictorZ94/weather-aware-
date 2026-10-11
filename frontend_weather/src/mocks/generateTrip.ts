@@ -6,7 +6,6 @@ import {
   RISK_LEVELS,
   type Checkpoint,
   type Heatmap,
-  type RiskLevel,
   type Route,
   type TripPlan,
   type TripPlanRequest,
@@ -33,8 +32,7 @@ type Cell = {
 
 const EARTH_RADIUS_MILES = 3958.8
 const FORECAST_HOURS = 48
-const LIGHT_LOAD_KG = 9_000
-const HEAVY_LOAD_KG = 30_000
+const LB_PER_KG = 2.20462262
 
 const round = (value: number, digits = 1) => {
   const factor = 10 ** digits
@@ -143,64 +141,51 @@ function strongestCell(cells: Cell[], lon: number, lat: number, hour: number) {
 function weatherAt(cells: Cell[], lon: number, lat: number, hour: number): Weather {
   const { intensity: i, kind } = strongestCell(cells, lon, lat, hour)
   const gust = kind === 'wind' ? 14 + 52 * i : 12 + 22 * i
-  const snowing = kind === 'snow' && i > 0.25
-  const raining = kind === 'rain' && i > 0.2
-
-  let condition = 'Clear'
-  if (i >= 0.12) condition = 'Cloudy'
-  if (snowing) condition = i > 0.7 ? 'Heavy snow' : 'Snow'
-  else if (raining) condition = i > 0.7 ? 'Heavy rain' : 'Rain'
-  else if (kind === 'wind' && i > 0.35) condition = 'Strong wind'
-
   return {
-    condition,
-    temperature_c: round(kind === 'snow' ? 4 - 12 * i : kind === 'rain' ? 14 - 4 * i : 16 - 3 * i),
-    wind_speed_mph: round(gust * 0.6, 0),
     wind_gust_mph: round(gust, 0),
-    rain_mm: raining ? round(13 * i * i) : 0,
-    snow_cm: snowing ? round(3.5 * i * i) : 0,
-    visibility_miles:
-      snowing || raining ? round(Math.max(0.1, 10 - 10.5 * i), 1) : round(10 - 2 * i, 1),
+    wind_speed_mph: round(gust * 0.6, 0),
+    rain_in: kind === 'rain' && i > 0.2 ? round(1.1 * i * i, 2) : 0,
+    snow_in: kind === 'snow' && i > 0.25 ? round(3.2 * i * i, 1) : 0,
+    temperature_c: round(kind === 'snow' ? 4 - 12 * i : kind === 'rain' ? 14 - 4 * i : 16 - 3 * i),
   }
 }
 
-// The risk rules. In the real system these live in Django only.
+// How many of the limits a value has reached: 0 (Low) to 4 (No Travel).
+const levelFor = (value: number, limits: number[]) => limits.filter((limit) => value >= limit).length
+
+// A rough imitation of the risk and load rules. The real ones live in Django
+// (trips/rules.py) and are the only ones that count.
 function classify(weather: Weather, loadKg: number) {
-  const light = loadKg < LIGHT_LOAD_KG
-  const heavy = loadKg > HEAVY_LOAD_KG
-  const gustShift = light ? -10 : 0
-
+  const cargoLb = loadKg * LB_PER_KG
   const gust = weather.wind_gust_mph
-  const gustLevel =
-    gust < 25 + gustShift ? 0 : gust < 35 + gustShift ? 1 : gust < 45 + gustShift ? 2 : gust < 55 + gustShift ? 3 : 4
 
-  const snow = weather.snow_cm
-  let snowLevel = snow === 0 ? 0 : snow < 0.5 ? 1 : snow < 1.5 ? 2 : snow < 2.8 ? 3 : 4
-  if (heavy && snowLevel > 0 && snowLevel < 4) snowLevel += 1
+  let wind = levelFor(gust, [25, 35, 45, 55])
+  let loadRule: string | null = null
+  if (gust >= 55) {
+    loadRule = 'Wind 55 mph or more: No Travel for any load'
+  } else if (gust >= 45 && cargoLb > 30_000) {
+    wind = 4
+    loadRule = 'Wind 45–54 mph with cargo over 30,000 lb: No Travel'
+  } else if (gust >= 35 && cargoLb > 40_000) {
+    wind = 3
+    loadRule = 'Wind 35–44 mph with cargo over 40,000 lb: Severe'
+  }
+  const rain = levelFor(weather.rain_in, [0.1, 0.25, 0.5, 1.01])
+  const snow = levelFor(weather.snow_in, [0.5, 1, 2, 3.01])
+  const level = Math.max(wind, rain, snow)
 
-  const rain = weather.rain_mm
-  const rainLevel = rain < 2 ? 0 : rain < 6 ? 1 : rain < 10 ? 2 : 3
-
-  const visibility = weather.visibility_miles
-  const visibilityLevel =
-    visibility >= 3 ? 0 : visibility >= 1 ? 1 : visibility >= 0.5 ? 2 : visibility >= 0.25 ? 3 : 4
-
-  const factors = [
-    { level: snowLevel, text: `Snow ${snow} cm/h` },
-    { level: gustLevel, text: `Wind gusts ${gust} mph` },
-    { level: visibilityLevel, text: `Visibility ${visibility} mi` },
-    { level: rainLevel, text: `Rain ${rain} mm/h` },
-  ]
-  const deciding = factors.reduce((worst, factor) => (factor.level > worst.level ? factor : worst))
+  let deciding = 'No significant weather'
+  if (level > 0) {
+    if (wind === level) deciding = `Wind gusts ${gust} mph`
+    else if (snow === level) deciding = `Snow ${weather.snow_in.toFixed(1)} in/hr`
+    else deciding = `Rain ${weather.rain_in.toFixed(2)} in/hr`
+  }
 
   return {
-    level: RISK_LEVELS[deciding.level],
-    deciding: deciding.level === 0 ? 'No significant weather' : deciding.text,
-    loadRule: light
-      ? 'Light load: gust limits lowered by 10 mph'
-      : heavy
-        ? 'Heavy load: snow risk raised one level'
-        : 'Standard load: no adjustment',
+    level,
+    levels: { wind: RISK_LEVELS[wind], rain: RISK_LEVELS[rain], snow: RISK_LEVELS[snow] },
+    deciding,
+    loadRule,
   }
 }
 
@@ -230,53 +215,62 @@ function buildRoute(
   const id = `route-${'abc'[index]}`
 
   const checkpointMiles: number[] = []
-  for (let mile = 0; mile < distance - interval * 0.3; mile += interval) checkpointMiles.push(mile)
+  for (let mile = 0; mile < distance - 1e-6; mile += interval) checkpointMiles.push(mile)
   checkpointMiles.push(distance)
 
-  const checkpoints: Checkpoint[] = checkpointMiles.map((mile, i) => {
+  const checkpoints: Checkpoint[] = checkpointMiles.map((mile, seq) => {
     const [lon, lat] = pointAtMile(line, miles, mile)
     const hour = mile / speedMph
-    const timezone = timezoneForLongitude(lon)
+    // Each checkpoint stands for the road half way to each neighbour.
+    const back = seq > 0 ? (mile - checkpointMiles[seq - 1]) / 2 : 0
+    const ahead = seq + 1 < checkpointMiles.length ? (checkpointMiles[seq + 1] - mile) / 2 : 0
     const base = {
-      id: `${id}-cp-${i}`,
+      id: `${id}-cp-${seq}`,
+      seq,
       mile: round(mile),
       lat: round(lat, 4),
       lon: round(lon, 4),
-      eta: departure.add(hour * 60, 'minute').tz(timezone).format(),
-      timezone,
+      eta: departure.add(hour * 60, 'minute').utc().format(),
+      timezone: timezoneForLongitude(lon),
+      miles_represented: round(back + ahead, 2),
     }
-    if (dropWeather && i % 4 === 2) {
-      return { ...base, risk_level: null, deciding_condition: null, load_rule: null, weather: null }
+    if (dropWeather && seq % 4 === 2) {
+      return {
+        ...base,
+        risk_level: null,
+        levels: null,
+        deciding_condition: null,
+        load_rule: null,
+        data_status: 'missing',
+        weather: null,
+      }
     }
     const weather = weatherAt(cells, lon, lat, hour)
     const risk = classify(weather, request.load_weight_kg)
     return {
       ...base,
-      risk_level: risk.level,
+      risk_level: RISK_LEVELS[risk.level],
+      levels: risk.levels,
       deciding_condition: risk.deciding,
       load_rule: risk.loadRule,
+      data_status: 'ok',
       weather,
     }
   })
 
-  // Each checkpoint stands for the stretch of road up to the next one.
-  const milesByLevel = { low: 0, moderate: 0, high: 0, severe: 0, no_travel: 0 }
+  const milesByLevel = { low: 0, moderate: 0, high: 0, severe: 0, no_travel: 0, unknown: 0 }
   let weightedLevels = 0
   let knownMiles = 0
-  checkpoints.forEach((checkpoint, i) => {
-    const next = checkpoints[i + 1]
-    if (!next || checkpoint.risk_level === null) return
-    const stretch = next.mile - checkpoint.mile
-    milesByLevel[checkpoint.risk_level] += stretch
-    weightedLevels += RISK_LEVELS.indexOf(checkpoint.risk_level) * stretch
-    knownMiles += stretch
-  })
-  for (const level of RISK_LEVELS) milesByLevel[level] = round(milesByLevel[level])
-
-  const hasNoTravel = checkpoints.some((checkpoint) => checkpoint.risk_level === 'no_travel')
-  const averageRisk: RiskLevel = hasNoTravel
-    ? 'no_travel'
-    : RISK_LEVELS[Math.round(knownMiles > 0 ? weightedLevels / knownMiles : 0)]
+  for (const checkpoint of checkpoints) {
+    milesByLevel[checkpoint.risk_level ?? 'unknown'] += checkpoint.miles_represented
+    if (checkpoint.risk_level !== null) {
+      weightedLevels += RISK_LEVELS.indexOf(checkpoint.risk_level) * checkpoint.miles_represented
+      knownMiles += checkpoint.miles_represented
+    }
+  }
+  for (const key of Object.keys(milesByLevel) as (keyof typeof milesByLevel)[]) {
+    milesByLevel[key] = round(milesByLevel[key])
+  }
 
   const duration = (distance / speedMph) * 60
 
@@ -286,8 +280,9 @@ function buildRoute(
     geometry: { type: 'LineString', coordinates: line },
     distance_miles: round(distance),
     duration_minutes: Math.round(duration),
-    arrival_time: departure.add(duration, 'minute').tz(request.destination.timezone).format(),
-    average_risk: averageRisk,
+    arrival_time: departure.add(duration, 'minute').utc().format(),
+    rank: 0, // set by rankRoutes
+    average_risk: knownMiles > 0 ? round(weightedLevels / knownMiles, 2) : null,
     miles_by_level: milesByLevel,
     worst_segment: findWorstSegment(checkpoints),
     checkpoints,
@@ -321,44 +316,51 @@ function findWorstSegment(checkpoints: Checkpoint[]): Route['worst_segment'] {
   }
 }
 
-function exposure(route: Route): number {
-  const weighted = RISK_LEVELS.reduce(
-    (sum, level, index) => sum + route.miles_by_level[level] * index,
-    0,
-  )
-  return weighted / route.distance_miles + (route.duration_minutes / 60) * 0.02
-}
+// Orders the routes (fewest Severe miles, fewest High miles, lowest average
+// risk, shortest time) and picks the recommended one, like Django's ranking.
+function rankRoutes(routes: Route[]) {
+  const key = (route: Route) => [
+    route.miles_by_level.no_travel > 0 ? 1 : 0,
+    route.miles_by_level.no_travel,
+    route.miles_by_level.severe,
+    route.miles_by_level.high,
+    route.average_risk ?? 99,
+    route.duration_minutes,
+  ]
+  routes.sort((a, b) => {
+    const [ka, kb] = [key(a), key(b)]
+    const i = ka.findIndex((value, n) => value !== kb[n])
+    return i === -1 ? 0 : ka[i] - kb[i]
+  })
+  routes.forEach((route, i) => (route.rank = i + 1))
 
-const riskyMiles = (route: Route) =>
-  route.miles_by_level.high + route.miles_by_level.severe + route.miles_by_level.no_travel
-
-function recommend(routes: Route[]): { id: string | null; reason: string | null } {
-  const drivable = routes.filter((route) => route.average_risk !== 'no_travel')
-  if (drivable.length === 0) return { id: null, reason: null }
-
-  const ranked = [...drivable].sort((a, b) => exposure(a) - exposure(b))
-  const best = ranked[0]
-  const others = routes.filter((route) => route.id !== best.id)
-  if (others.length === 0) return { id: best.id, reason: 'The only route available for this trip.' }
-
-  const fastestOther = [...others].sort((a, b) => a.duration_minutes - b.duration_minutes)[0]
-  const saved = Math.round(riskyMiles(fastestOther) - riskyMiles(best))
-  const extra = best.duration_minutes - fastestOther.duration_minutes
-
-  let reason: string
-  if (extra <= 0 && saved > 0) {
-    reason = `Fastest route, with ${saved} fewer miles at High risk or above than the ${fastestOther.name.toLowerCase()}.`
-  } else if (extra <= 0) {
-    reason = 'Fastest route, with weather risk no worse than the others.'
-  } else if (saved > 0) {
-    reason = `${saved} fewer miles at High risk or above than the ${fastestOther.name.toLowerCase()}, for ${extra} min more driving.`
-  } else {
-    reason = 'Lowest overall weather exposure along the way.'
+  const [best, runnerUp] = routes
+  const allNoTravel = routes.every((route) => route.miles_by_level.no_travel > 0)
+  if (allNoTravel) {
+    return {
+      id: best.id,
+      reason: 'Every route has No Travel conditions; this one has the fewest No Travel miles. Consider a later departure.',
+      allNoTravel,
+    }
   }
-  return { id: best.id, reason }
+
+  let reason = 'The only truck route available.'
+  if (runnerUp) {
+    const mine = best.miles_by_level
+    const theirs = runnerUp.miles_by_level
+    if (theirs.no_travel > 0) reason = 'The only route without No Travel conditions.'
+    else if (mine.severe !== theirs.severe)
+      reason = `Fewest Severe miles (${Math.round(mine.severe)} vs ${Math.round(theirs.severe)})`
+    else if (mine.high !== theirs.high)
+      reason = `Fewest High miles (${Math.round(mine.high)} vs ${Math.round(theirs.high)})`
+    else if (best.average_risk !== runnerUp.average_risk)
+      reason = `Lowest average risk (${(best.average_risk ?? 0).toFixed(1)} vs ${(runnerUp.average_risk ?? 0).toFixed(1)})`
+    else reason = `All routes equally safe; fastest by ${runnerUp.duration_minutes - best.duration_minutes} min`
+  }
+  return { id: best.id, reason, allNoTravel }
 }
 
-function buildHeatmap(cells: Cell[], routes: Route[]): Heatmap {
+function buildHeatmap(cells: Cell[], routes: Route[], request: TripPlanRequest): Heatmap {
   let west = Infinity
   let east = -Infinity
   let south = Infinity
@@ -372,20 +374,25 @@ function buildHeatmap(cells: Cell[], routes: Route[]): Heatmap {
     }
   }
   const pad = 2.5
-  const step = east - west > 20 ? 0.5 : 0.3
+  const step = east - west > 20 ? 0.4 : 0.25
 
-  const hours: Heatmap['hours'] = []
-  for (let hour = 0; hour <= FORECAST_HOURS; hour++) {
-    const points: [number, number, number][] = []
-    for (let lon = west - pad; lon <= east + pad; lon += step) {
-      for (let lat = south - pad; lat <= north + pad; lat += step) {
-        const { intensity } = strongestCell(cells, lon, lat, hour)
-        if (intensity >= 0.1) points.push([round(lon, 2), round(lat, 2), round(Math.min(1, intensity), 2)])
+  const points: [number, number][] = []
+  const levels: number[][] = []
+  for (let lon = west - pad; lon <= east + pad; lon += step) {
+    for (let lat = south - pad; lat <= north + pad; lat += step) {
+      const row: number[] = []
+      for (let hour = 0; hour <= FORECAST_HOURS; hour++) {
+        row.push(classify(weatherAt(cells, lon, lat, hour), request.load_weight_kg).level)
+      }
+      // The real heatmap only covers the route corridor; here, keep the
+      // points where something happens so the weather systems are visible.
+      if (row.some((level) => level > 0)) {
+        points.push([round(lon, 2), round(lat, 2)])
+        levels.push(row)
       }
     }
-    hours.push({ hour, points })
   }
-  return { hours }
+  return { hour0: dayjs(request.departure_time).utc().startOf('hour').format(), points, levels }
 }
 
 export function generateTrip(request: TripPlanRequest): TripPlan {
@@ -450,10 +457,10 @@ export function generateTrip(request: TripPlanRequest): TripPlan {
   const routes = bulges.map((bulge, index) =>
     buildRoute(index, bulge, request, cells, speedMph, scenario === SCENARIO.missingWeather),
   )
-  const recommendation = recommend(routes)
+  const recommendation = rankRoutes(routes)
 
   const warnings: TripWarning[] = []
-  if (recommendation.id === null) {
+  if (recommendation.allNoTravel) {
     warnings.push({
       code: 'no_travel_all_routes',
       message: 'Every route crosses conditions rated No Travel. Consider delaying departure.',
@@ -485,6 +492,6 @@ export function generateTrip(request: TripPlanRequest): TripPlan {
     recommendation_reason: recommendation.reason,
     warnings,
     routes,
-    heatmap: buildHeatmap(cells, routes),
+    heatmap: buildHeatmap(cells, routes, request),
   }
 }

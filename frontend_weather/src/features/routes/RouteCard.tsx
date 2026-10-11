@@ -5,8 +5,8 @@ import Chip from '@mui/material/Chip'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useEffect, useRef } from 'react'
-import type { Route } from '../../api/schemas'
-import { RISK_COLORS, RISK_LABELS } from '../../theme'
+import { RISK_LEVELS, type Route } from '../../api/schemas'
+import { RISK_COLORS, RISK_LABELS, UNKNOWN_RISK_COLOR } from '../../theme'
 import { formatDuration, formatLocalTime, formatMiles } from '../../utils/format'
 import { RecommendationBadge } from './RecommendationBadge'
 import { RiskMilesBar } from './RiskMilesBar'
@@ -52,7 +52,14 @@ export function RouteCard({
   }, [selected])
 
   const worst = route.worst_segment
-  const riskColor = RISK_COLORS[route.average_risk]
+  // Django sends the average as a number 0-4; the label is its nearest level.
+  const average = route.average_risk
+  const averageLevel = average === null ? null : RISK_LEVELS[Math.round(average)]
+  const riskColor = averageLevel ? RISK_COLORS[averageLevel] : UNKNOWN_RISK_COLOR
+  const riskLabel =
+    average === null || !averageLevel
+      ? 'Risk unknown'
+      : `Avg risk ${average.toFixed(1)} · ${RISK_LABELS[averageLevel]}`
 
   return (
     <Card
@@ -71,11 +78,12 @@ export function RouteCard({
             </Typography>
             <Chip
               size="small"
-              label={`${RISK_LABELS[route.average_risk]} risk`}
+              label={riskLabel}
               sx={(theme) => ({
                 bgcolor: riskColor,
                 color: theme.palette.getContrastText(riskColor),
                 fontWeight: 600,
+                flexShrink: 0,
               })}
             />
           </Stack>
@@ -88,7 +96,7 @@ export function RouteCard({
             <Stat label="Arrival" value={formatLocalTime(route.arrival_time, destinationTimezone)} />
           </Stack>
 
-          <RiskMilesBar milesByLevel={route.miles_by_level} distanceMiles={route.distance_miles} />
+          <RiskMilesBar milesByLevel={route.miles_by_level} />
 
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
             {worst ? (
@@ -107,8 +115,11 @@ export function RouteCard({
                 Worst: mi {Math.round(worst.from_mile)}–{Math.round(worst.to_mile)},{' '}
                 {worst.description.toLowerCase()}
               </>
+            ) : average === null ? (
+              // Not "no risky stretch": without a forecast that would be a safety claim.
+              'Risk not available: no weather forecast'
             ) : (
-              'No risky segments on this route'
+              'No stretch above Low risk'
             )}
           </Typography>
         </Stack>

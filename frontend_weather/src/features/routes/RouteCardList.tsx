@@ -10,12 +10,15 @@ type Props = {
 }
 
 export function RouteCardList({ plan, selectedRouteId, onSelectRoute }: Props) {
+  // Best route first. Django decides the ranking; this only orders by it.
+  const ranked = [...plan.routes].sort((a, b) => a.rank - b.rank)
+
   return (
     <Stack spacing={1.5} component="section" aria-label="Routes">
       <Typography variant="h2">
         {plan.origin.label} to {plan.destination.label}
       </Typography>
-      {plan.routes.map((route) => (
+      {ranked.map((route) => (
         <RouteCard
           key={route.id}
           route={route}

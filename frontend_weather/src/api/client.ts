@@ -2,17 +2,26 @@ import type { z } from 'zod'
 import { apiErrorSchema } from './schemas'
 
 const BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? '/api'
-const TIMEOUT_MS = 30_000
+// One plan waits on HERE routing and several Open-Meteo requests.
+const TIMEOUT_MS = 60_000
 
 export class ApiError extends Error {
   status: number | null
   fieldErrors: Record<string, string>
+  // Whether trying the same request again could succeed.
+  retryable: boolean
 
-  constructor(message: string, status: number | null, fieldErrors: Record<string, string> = {}) {
+  constructor(
+    message: string,
+    status: number | null,
+    fieldErrors: Record<string, string> = {},
+    retryable = true,
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.fieldErrors = fieldErrors
+    this.retryable = retryable
   }
 }
 
@@ -57,6 +66,7 @@ export async function apiFetch<T>(
       parsed.success ? parsed.data.detail : `The server returned an error (${response.status}).`,
       response.status,
       parsed.success ? parsed.data.field_errors : undefined,
+      parsed.success ? parsed.data.retryable : undefined,
     )
   }
 
