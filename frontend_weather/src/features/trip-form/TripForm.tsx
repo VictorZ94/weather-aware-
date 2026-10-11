@@ -4,7 +4,9 @@ import Button from '@mui/material/Button'
 import FormControl from '@mui/material/FormControl'
 import FormHelperText from '@mui/material/FormHelperText'
 import FormLabel from '@mui/material/FormLabel'
+import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
@@ -12,6 +14,7 @@ import { useEffect } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { CHECKPOINT_INTERVALS, type TripPlanRequest } from '../../api/schemas'
 import { useUnits } from '../../context/UnitsContext'
+import { useWeatherScenarios } from '../../hooks/useWeatherScenarios'
 import { dayjs, wallClockInZone } from '../../utils/dayjs'
 import { fromKg, toKg, type WeightUnit } from '../../utils/units'
 import { PlaceAutocomplete } from './PlaceAutocomplete'
@@ -25,6 +28,7 @@ const SERVER_FIELDS: Record<string, keyof TripFormValues> = {
   departure_time: 'departure',
   load_weight_kg: 'weight',
   checkpoint_interval_miles: 'interval',
+  weather_scenario: 'weatherScenario',
 }
 
 type Props = {
@@ -35,6 +39,7 @@ type Props = {
 
 export function TripForm({ onSubmit, isLoading, serverFieldErrors }: Props) {
   const { weightUnit, setWeightUnit } = useUnits()
+  const weatherScenarios = useWeatherScenarios()
 
   const { control, handleSubmit, setError, setValue, getValues } = useForm<
     TripFormValues,
@@ -48,6 +53,7 @@ export function TripForm({ onSubmit, isLoading, serverFieldErrors }: Props) {
       departure: dayjs().add(1, 'hour').startOf('hour'),
       weight: '',
       interval: 25,
+      weatherScenario: '',
     },
   })
 
@@ -80,6 +86,7 @@ export function TripForm({ onSubmit, isLoading, serverFieldErrors }: Props) {
       // 40,000 lb must not come back as 40,001 after the round trip.
       load_weight_kg: Math.round(toKg(Number(values.weight), weightUnit) * 100) / 100,
       checkpoint_interval_miles: values.interval,
+      ...(values.weatherScenario ? { weather_scenario: values.weatherScenario } : {}),
     })
   })
 
@@ -190,6 +197,40 @@ export function TripForm({ onSubmit, isLoading, serverFieldErrors }: Props) {
           </FormControl>
         )}
       />
+
+      {/* Development only: Django offers scenarios only when it runs with DEBUG on. */}
+      {weatherScenarios.length > 0 && (
+        <Controller
+          name="weatherScenario"
+          control={control}
+          render={({ field, fieldState }) => (
+            <TextField
+              select
+              label="Simulate weather (development)"
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              inputRef={field.ref}
+              size="small"
+              fullWidth
+              error={Boolean(fieldState.error)}
+              helperText={
+                fieldState.error?.message ??
+                weatherScenarios.find((scenario) => scenario.id === field.value)?.description ??
+                'Uses the real Open-Meteo forecast'
+              }
+              slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
+            >
+              <MenuItem value="">Real forecast</MenuItem>
+              {weatherScenarios.map((scenario) => (
+                <MenuItem key={scenario.id} value={scenario.id}>
+                  {scenario.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+        />
+      )}
 
       <Button
         type="submit"

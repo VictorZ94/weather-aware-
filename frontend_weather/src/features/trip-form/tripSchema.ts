@@ -22,6 +22,8 @@ export const tripSchema = z
       .refine((text) => Number.isFinite(Number(text)), 'Cargo weight must be a number')
       .refine((text) => !(Number(text) <= 0), 'Cargo weight must be greater than 0'),
     interval: z.union(CHECKPOINT_INTERVALS.map((miles) => z.literal(miles))),
+    // Development only; '' means the real forecast.
+    weatherScenario: z.string(),
   })
   .superRefine((values, context) => {
     const { origin, destination, departure } = values

@@ -1,7 +1,10 @@
 from datetime import datetime, timedelta
 
+from django.conf import settings
 from django.utils import timezone
 from rest_framework import serializers
+
+from .simulated_weather import SCENARIO_LABELS
 
 MAX_DAYS_AHEAD = 7
 MAX_CARGO_KG = 50_000
@@ -30,6 +33,18 @@ class TripPlanRequestSerializer(serializers.Serializer):
     checkpoint_interval_miles = serializers.IntegerField(
         error_messages={'required': 'Choose a checkpoint interval.'}
     )
+
+    # Development only: replaces the forecast with a made-up scenario.
+    weather_scenario = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    def validate_weather_scenario(self, value):
+        if not value:
+            return None
+        if not settings.ALLOW_WEATHER_SIMULATION:
+            raise serializers.ValidationError('Weather simulation is only available in development.')
+        if value not in SCENARIO_LABELS:
+            raise serializers.ValidationError('Unknown weather scenario.')
+        return value
 
     def validate_departure_time(self, value):
         try:
