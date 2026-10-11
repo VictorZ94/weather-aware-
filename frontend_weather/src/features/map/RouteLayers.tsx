@@ -1,66 +1,96 @@
-import type { FeatureCollection, LineString } from 'geojson'
-import { Layer, Source } from 'react-map-gl/maplibre'
-import type { Route } from '../../api/schemas'
-import { ROUTE_COLORS } from '../../theme'
+// @packages
+import { Layer, Source } from "react-map-gl/maplibre";
 
-export const ROUTE_HIT_LAYER_ID = 'routes-hit'
+// @scripts
+import type { FeatureCollection, LineString } from "geojson";
+import type { Route } from "../../api/schemas";
+import { ROUTE_COLORS } from "../../theme";
+
+export const ROUTE_HIT_LAYER_ID = "routes-hit";
 
 type Props = {
-  routes: Route[]
-  recommendedRouteId: string | null
-  selectedRouteId: string | null
-}
+  routes: Route[];
+  recommendedRouteId: string | null;
+  selectedRouteId: string | null;
+};
 
-export function RouteLayers({ routes, recommendedRouteId, selectedRouteId }: Props) {
+export function RouteLayers({
+  routes,
+  recommendedRouteId,
+  selectedRouteId,
+}: Props) {
   const data: FeatureCollection<LineString> = {
-    type: 'FeatureCollection',
+    type: "FeatureCollection",
     features: routes.map((route) => ({
-      type: 'Feature',
+      type: "Feature",
       geometry: route.geometry,
       properties: {
         id: route.id,
         recommended: route.id === recommendedRouteId,
         selected: route.id === selectedRouteId,
-        // Draw order: selected on top, then recommended, then the rest.
-        order: route.id === selectedRouteId ? 2 : route.id === recommendedRouteId ? 1 : 0,
+        order:
+          route.id === selectedRouteId
+            ? 2
+            : route.id === recommendedRouteId
+              ? 1
+              : 0,
       },
     })),
-  }
+  };
 
   return (
     <Source id="routes" type="geojson" data={data}>
       <Layer
         id="routes-outline"
         type="line"
-        layout={{ 'line-cap': 'round', 'line-join': 'round', 'line-sort-key': ['get', 'order'] }}
+        layout={{
+          "line-cap": "round",
+          "line-join": "round",
+          "line-sort-key": ["get", "order"],
+        }}
         paint={{
-          'line-color': ['case', ['get', 'selected'], ROUTE_COLORS.selectedOutline, '#ffffff'],
-          'line-width': ['case', ['get', 'selected'], 11, ['get', 'recommended'], 9, 6],
+          "line-color": [
+            "case",
+            ["get", "selected"],
+            ROUTE_COLORS.selectedOutline,
+            "#ffffff",
+          ],
+          "line-width": [
+            "case",
+            ["get", "selected"],
+            11,
+            ["get", "recommended"],
+            9,
+            6,
+          ],
         }}
       />
       <Layer
         id="routes-line"
         type="line"
-        layout={{ 'line-cap': 'round', 'line-join': 'round', 'line-sort-key': ['get', 'order'] }}
+        layout={{
+          "line-cap": "round",
+          "line-join": "round",
+          "line-sort-key": ["get", "order"],
+        }}
         paint={{
-          'line-color': [
-            'case',
-            ['get', 'recommended'],
+          "line-color": [
+            "case",
+            ["get", "recommended"],
             ROUTE_COLORS.recommended,
-            ['get', 'selected'],
+            ["get", "selected"],
             ROUTE_COLORS.selected,
             ROUTE_COLORS.other,
           ],
-          'line-width': ['case', ['get', 'recommended'], 6, 4],
+          "line-width": ["case", ["get", "recommended"], 6, 4],
         }}
       />
-      {/* Wide, nearly invisible line so routes are easy to click or tap. */}
       <Layer
         id={ROUTE_HIT_LAYER_ID}
         type="line"
-        layout={{ 'line-sort-key': ['get', 'order'] }}
-        paint={{ 'line-width': 22, 'line-opacity': 0.01 }}
+        layout={{ "line-sort-key": ["get", "order"] }}
+        paint={{ "line-width": 22, "line-opacity": 0.01 }}
       />
     </Source>
-  )
+  );
 }

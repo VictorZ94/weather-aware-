@@ -1,13 +1,14 @@
-import { useQuery } from '@tanstack/react-query'
-import { listWeatherScenarios } from '../api/trips'
+// @packages
+import { useQuery } from "@tanstack/react-query";
 
-// The simulated-weather choices Django offers. Empty outside development (and
-// when the request fails), in which case the selector is not shown at all.
+// @scripts
+import { listWeatherScenarios } from "../api/trips";
+
 export function useWeatherScenarios() {
   const query = useQuery({
-    queryKey: ['trips', 'weather-scenarios'],
+    queryKey: ["trips", "weather-scenarios"],
     queryFn: ({ signal }) => listWeatherScenarios(signal),
     staleTime: Infinity,
-  })
-  return query.data ?? []
+  });
+  return query.data ?? [];
 }
