@@ -12,7 +12,7 @@ const MARKS = [0, 12, 24, 36, 48].map((value) => ({ value, label: `+${value} h` 
 type Props = {
   hour: number
   onHourChange: (hour: number) => void
-  departureTime: string
+  startTime: string
   timezone: string
   showTrucks: boolean
   onShowTrucksChange: (show: boolean) => void
@@ -21,14 +21,14 @@ type Props = {
 export function ForecastSlider({
   hour,
   onHourChange,
-  departureTime,
+  startTime,
   timezone,
   showTrucks,
   onShowTrucksChange,
 }: Props) {
-  // Clock time at the origin for an hour offset from departure.
+  // Clock time at the origin for an hour offset from the start of the forecast.
   const timeAt = (offset: number) =>
-    formatLocalTime(new Date(Date.parse(departureTime) + offset * 3_600_000).toISOString(), timezone)
+    formatLocalTime(new Date(Date.parse(startTime) + offset * 3_600_000).toISOString(), timezone)
 
   return (
     <Paper square elevation={3} sx={{ px: { xs: 3, md: 4 }, pt: 1.5, pb: 1, zIndex: 3 }}>
@@ -63,8 +63,8 @@ export function ForecastSlider({
         marks={MARKS}
         valueLabelDisplay="auto"
         valueLabelFormat={timeAt}
-        aria-label="Hours after departure"
-        getAriaValueText={(value) => `${value} hours after departure, ${timeAt(value)}`}
+        aria-label="Forecast hour"
+        getAriaValueText={(value) => `Hour ${value}, ${timeAt(value)}`}
       />
     </Paper>
   )

@@ -16,6 +16,6 @@ export function celsiusToFahrenheit(celsius: number): number {
   return (celsius * 9) / 5 + 32
 }
 
-export function mmToInches(mm: number): number {
-  return mm / MM_PER_INCH
+export function inchesToMm(inches: number): number {
+  return inches * MM_PER_INCH
 }

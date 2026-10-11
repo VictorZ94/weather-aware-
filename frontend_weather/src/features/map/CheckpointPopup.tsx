@@ -3,7 +3,7 @@ import Chip from '@mui/material/Chip'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { Popup } from 'react-map-gl/maplibre'
-import type { Checkpoint } from '../../api/schemas'
+import type { Checkpoint, RiskLevel } from '../../api/schemas'
 import { useUnits } from '../../context/UnitsContext'
 import { RISK_COLORS, RISK_LABELS, UNKNOWN_RISK_COLOR } from '../../theme'
 import { formatLocalTime, formatRain, formatSnow, formatTemperature } from '../../utils/format'
@@ -13,22 +13,41 @@ type Props = {
   onClose: () => void
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+// One weather condition: its value and the risk level that value has on its own.
+function ConditionRow({ label, value, level }: { label: string; value: string; level: RiskLevel }) {
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Typography variant="body2" sx={{ color: 'text.secondary', width: 44 }}>
         {label}
       </Typography>
-      <Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>
+      <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
         {value}
       </Typography>
+      <Box
+        aria-hidden
+        sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: RISK_COLORS[level], flexShrink: 0 }}
+      />
+      <Typography variant="caption" sx={{ width: 62 }}>
+        {RISK_LABELS[level]}
+      </Typography>
+    </Box>
+  )
+}
+
+function Detail({ label, text }: { label: string; text: string }) {
+  return (
+    <Box>
+      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+        {label}
+      </Typography>
+      <Typography variant="body2">{text}</Typography>
     </Box>
   )
 }
 
 export function CheckpointPopup({ checkpoint, onClose }: Props) {
   const { temperatureUnit } = useUnits()
-  const { weather, risk_level: risk } = checkpoint
+  const { weather, levels, risk_level: risk } = checkpoint
   const color = risk ? RISK_COLORS[risk] : UNKNOWN_RISK_COLOR
 
   return (
@@ -38,9 +57,9 @@ export function CheckpointPopup({ checkpoint, onClose }: Props) {
       onClose={onClose}
       closeOnClick={false}
       offset={12}
-      maxWidth="300px"
+      maxWidth="320px"
     >
-      <Stack spacing={1} sx={{ minWidth: 220, pr: 1 }}>
+      <Stack spacing={1} sx={{ minWidth: 240, pr: 1 }}>
         <Box>
           <Typography variant="subtitle2">Mile {Math.round(checkpoint.mile)}</Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -59,33 +78,30 @@ export function CheckpointPopup({ checkpoint, onClose }: Props) {
           })}
         />
 
-        {weather ? (
+        {weather && levels ? (
           <Box>
-            <Row label="Conditions" value={`${weather.condition}, ${formatTemperature(weather.temperature_c, temperatureUnit)}`} />
-            <Row label="Wind" value={`${weather.wind_speed_mph} mph, gusts ${weather.wind_gust_mph}`} />
-            <Row label="Rain" value={formatRain(weather.rain_mm, temperatureUnit)} />
-            <Row label="Snow" value={formatSnow(weather.snow_cm, temperatureUnit)} />
-            <Row label="Visibility" value={`${weather.visibility_miles} mi`} />
+            <ConditionRow
+              label="Wind"
+              value={`gusts ${Math.round(weather.wind_gust_mph)} mph`}
+              level={levels.wind}
+            />
+            <ConditionRow label="Rain" value={formatRain(weather.rain_in, temperatureUnit)} level={levels.rain} />
+            <ConditionRow label="Snow" value={formatSnow(weather.snow_in, temperatureUnit)} level={levels.snow} />
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
+              Sustained wind {Math.round(weather.wind_speed_mph)} mph
+              {weather.temperature_c !== null &&
+                ` · ${formatTemperature(weather.temperature_c, temperatureUnit)}`}
+            </Typography>
           </Box>
         ) : (
-          <Typography variant="body2">Weather unavailable for this checkpoint.</Typography>
+          <Typography variant="body2">No weather forecast for this checkpoint.</Typography>
         )}
 
         {checkpoint.deciding_condition && (
-          <Box>
-            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-              Deciding condition
-            </Typography>
-            <Typography variant="body2">{checkpoint.deciding_condition}</Typography>
-          </Box>
+          <Detail label="Deciding condition" text={checkpoint.deciding_condition} />
         )}
-        {checkpoint.load_rule && (
-          <Box>
-            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-              Load rule applied
-            </Typography>
-            <Typography variant="body2">{checkpoint.load_rule}</Typography>
-          </Box>
+        {weather && (
+          <Detail label="Load rule applied" text={checkpoint.load_rule ?? 'None for this cargo weight'} />
         )}
       </Stack>
     </Popup>

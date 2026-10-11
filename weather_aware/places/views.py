@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .here import HereClient
+from here.autosuggest import AutosuggestClient
 from .serializers import PlaceSerializer, SuggestQuerySerializer
 
 MIN_QUERY_LENGTH = 2
@@ -22,6 +22,7 @@ class SuggestPlacesView(APIView):
             return Response({'detail': query.errors['q'][0]}, status=status.HTTP_400_BAD_REQUEST)
 
         text = query.validated_data['q']
+        print(text)
         if len(text) < MIN_QUERY_LENGTH:
             return Response({'suggestions': []})
 
@@ -29,7 +30,7 @@ class SuggestPlacesView(APIView):
         cache_key = 'places:suggest:' + hashlib.sha256(text.lower().encode()).hexdigest()
         suggestions = cache.get(cache_key)
         if suggestions is None:
-            suggestions = HereClient(settings.HERE_API_KEY).autosuggest(text)
+            suggestions = AutosuggestClient(settings.HERE_API_KEY).autosuggest(text)
             cache.set(cache_key, suggestions, CACHE_SECONDS)
 
         return Response({'suggestions': PlaceSerializer(suggestions, many=True).data})

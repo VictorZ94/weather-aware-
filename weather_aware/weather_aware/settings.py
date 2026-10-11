@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'places',
+    'trips',
 ]
 
 MIDDLEWARE = [
@@ -151,7 +152,10 @@ REST_FRAMEWORK = {
     'UNAUTHENTICATED_USER': None,
     # Keeps a stuck client from burning the HERE quota.
     'DEFAULT_THROTTLE_CLASSES': ['rest_framework.throttling.AnonRateThrottle'],
-    'DEFAULT_THROTTLE_RATES': {'anon': '120/min'},
+    # 'plan' is the trip-planning endpoint: each call costs a HERE routing
+    # request and several Open-Meteo requests.
+    'DEFAULT_THROTTLE_RATES': {'anon': '120/min', 'plan': '20/min'},
+    'EXCEPTION_HANDLER': 'weather_aware.api.exception_handler',
 }
 
 CACHES = {
@@ -164,6 +168,23 @@ CACHES = {
 # External services
 
 HERE_API_KEY = env('HERE_API_KEY', default='')
+
+
+# Trip planning
+
+# The form only collects cargo weight, so the truck itself is assumed to be
+# a standard US tractor-trailer. HERE uses this to avoid low bridges and
+# weight-restricted roads.
+TRUCK_PROFILE = {
+    'empty_weight_lb': 35_000,
+    'height_ft': 13.5,
+    'width_ft': 8.5,
+    'length_ft': 72,
+    'axle_count': 5,
+}
+
+# Which wind reading the risk rules use: 'gusts' or 'sustained'.
+RISK_WIND_SOURCE = 'gusts'
 
 
 # Logging

@@ -5,25 +5,17 @@ import { RISK_LEVELS, type Route } from '../../api/schemas'
 import { RISK_COLORS, RISK_LABELS, UNKNOWN_RISK_COLOR } from '../../theme'
 import { formatMiles } from '../../utils/format'
 
-type Props = {
-  milesByLevel: Route['miles_by_level']
-  distanceMiles: number
-}
-
-export function RiskMilesBar({ milesByLevel, distanceMiles }: Props) {
-  const segments = RISK_LEVELS.map((level) => ({
-    key: level as string,
-    label: RISK_LABELS[level],
-    color: RISK_COLORS[level],
-    miles: milesByLevel[level],
-  }))
-
-  // Whatever Django could not rate (no forecast) is shown as "No data".
-  const rated = segments.reduce((sum, segment) => sum + segment.miles, 0)
-  const unrated = distanceMiles - rated
-  if (unrated >= 0.5) {
-    segments.push({ key: 'unknown', label: 'No data', color: UNKNOWN_RISK_COLOR, miles: unrated })
-  }
+export function RiskMilesBar({ milesByLevel }: { milesByLevel: Route['miles_by_level'] }) {
+  const segments = [
+    ...RISK_LEVELS.map((level) => ({
+      key: level as string,
+      label: RISK_LABELS[level],
+      color: RISK_COLORS[level],
+      miles: milesByLevel[level],
+    })),
+    // Miles with no forecast.
+    { key: 'unknown', label: 'No data', color: UNKNOWN_RISK_COLOR, miles: milesByLevel.unknown },
+  ]
 
   const shown = segments.filter((segment) => segment.miles >= 0.5)
   const summary = shown.map((segment) => `${segment.label} ${formatMiles(segment.miles)}`).join(' · ')

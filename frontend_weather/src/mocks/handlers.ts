@@ -25,16 +25,17 @@ const suggestHandlers = [
   }),
 ]
 
-export const handlers = [
-  ...(mockPlaces ? suggestHandlers : []),
+// Same for trip planning with VITE_MOCK_TRIPS=false.
+const mockTrips = import.meta.env.VITE_MOCK_TRIPS !== 'false'
 
+const tripHandlers = [
   http.post('*/api/trips/plan/', async ({ request }) => {
     const body = (await request.json()) as TripPlanRequest
     await delay(planDelay())
 
     if (body.destination.id === SCENARIO.serverError) {
       return HttpResponse.json(
-        { detail: 'The routing service is temporarily unavailable. Please try again.' },
+        { detail: 'The routing service is temporarily unavailable. Please try again.', retryable: true },
         { status: 500 },
       )
     }
@@ -43,6 +44,7 @@ export const handlers = [
         {
           detail: 'The trip could not be planned.',
           field_errors: { destination: 'Destination must be different from the origin' },
+          retryable: false,
         },
         { status: 422 },
       )
@@ -50,3 +52,5 @@ export const handlers = [
     return HttpResponse.json(generateTrip(body))
   }),
 ]
+
+export const handlers = [...(mockPlaces ? suggestHandlers : []), ...(mockTrips ? tripHandlers : [])]

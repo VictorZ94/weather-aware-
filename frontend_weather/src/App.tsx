@@ -81,7 +81,12 @@ function App() {
           </Paper>
 
           {error && !isLoading && (
-            <ErrorAlert message={error.message} onRetry={retry} retrying={isLoading} />
+            <ErrorAlert
+              message={error.message}
+              // No Retry for problems the driver has to fix first (bad input, no route).
+              onRetry={error.retryable ? retry : null}
+              retrying={isLoading}
+            />
           )}
 
           {plan && (
@@ -143,7 +148,8 @@ function App() {
           <ForecastSlider
             hour={hour}
             onHourChange={setHour}
-            departureTime={plan.departure_time}
+            // Hour 0 of the forecast is the departure rounded down to the hour.
+            startTime={plan.heatmap.hour0}
             timezone={plan.origin.timezone}
             showTrucks={showTrucks}
             onShowTrucksChange={setShowTrucks}

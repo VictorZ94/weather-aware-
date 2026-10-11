@@ -14,7 +14,8 @@ type Props = {
 
 export function TruckMarkers({ plan, hour, selectedRouteId, onSelectRoute }: Props) {
   const departureMs = Date.parse(plan.departure_time)
-  const atMs = departureMs + hour * 3_600_000
+  // The slider counts hours from the heatmap's hour 0 (departure rounded down).
+  const atMs = Date.parse(plan.heatmap.hour0) + hour * 3_600_000
 
   return plan.routes.map((route) => {
     const position = truckPosition(route, departureMs, atMs)

@@ -76,7 +76,9 @@ export function TripForm({ onSubmit, isLoading, serverFieldErrors }: Props) {
       origin,
       destination,
       departure_time: wallClockInZone(departure, origin.timezone).format(),
-      load_weight_kg: Math.round(toKg(Number(values.weight), weightUnit)),
+      // Two decimals, not whole kg: Django's load rules work in pounds, and
+      // 40,000 lb must not come back as 40,001 after the round trip.
+      load_weight_kg: Math.round(toKg(Number(values.weight), weightUnit) * 100) / 100,
       checkpoint_interval_miles: values.interval,
     })
   })

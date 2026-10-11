@@ -4,3 +4,5 @@ django-cors-headers==4.9.0
 django-environ==0.14.0
 httpx==0.28.1
 tenacity==9.2.1
+flexpolyline==0.1.0
+timezonefinder==9.0.0
