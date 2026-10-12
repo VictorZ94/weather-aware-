@@ -1,8 +1,17 @@
+// @packages
+import axios, { type AxiosRequestConfig } from "axios";
 import type { z } from "zod";
+
+// @scripts
 import { apiErrorSchema } from "./schemas";
 
-const BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? "/api";
 const TIMEOUT_MS = 60_000;
+
+const http = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? "/api",
+  timeout: TIMEOUT_MS,
+  headers: { Accept: "application/json" },
+});
 
 export class ApiError extends Error {
   status: number | null;
@@ -23,57 +32,46 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T>(
+type RequestOptions = Pick<
+  AxiosRequestConfig,
+  "method" | "params" | "data" | "signal"
+>;
+
+export async function apiRequest<T>(
   path: string,
   schema: z.ZodType<T>,
-  init: RequestInit = {},
+  options: RequestOptions = {},
 ): Promise<T> {
-  const timeout = AbortSignal.timeout(TIMEOUT_MS);
-  const signal = init.signal
-    ? AbortSignal.any([init.signal, timeout])
-    : timeout;
-
-  let response: Response;
+  let body: unknown;
+  let status: number;
   try {
-    response = await fetch(`${BASE_URL}${path}`, {
-      ...init,
-      signal,
-      headers: {
-        Accept: "application/json",
-        ...(init.body ? { "Content-Type": "application/json" } : {}),
-        ...init.headers,
-      },
-    });
+    const response = await http.request<unknown>({ url: path, ...options });
+    body = response.data;
+    status = response.status;
   } catch (error) {
-    if (error instanceof DOMException && error.name === "TimeoutError") {
+    // Cancelled by the caller (TanStack Query): let it through untouched.
+    if (axios.isCancel(error)) throw error;
+    if (!axios.isAxiosError(error)) throw error;
+
+    if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT") {
       throw new ApiError(
         "The server took too long to answer. Please try again.",
         null,
       );
     }
-    // Cancelled by the caller (TanStack Query): let it through untouched.
-    if (error instanceof DOMException && error.name === "AbortError")
-      throw error;
-    throw new ApiError(
-      "Could not reach the server. Check your connection and try again.",
-      null,
-    );
-  }
+    if (!error.response) {
+      throw new ApiError(
+        "Could not reach the server. Check your connection and try again.",
+        null,
+      );
+    }
 
-  let body: unknown = null;
-  try {
-    body = await response.json();
-  } catch {
-    // Non-JSON body; handled below.
-  }
-
-  if (!response.ok) {
-    const parsed = apiErrorSchema.safeParse(body);
+    const parsed = apiErrorSchema.safeParse(error.response.data);
     throw new ApiError(
       parsed.success
         ? parsed.data.detail
-        : `The server returned an error (${response.status}).`,
-      response.status,
+        : `The server returned an error (${error.response.status}).`,
+      error.response.status,
       parsed.success ? parsed.data.field_errors : undefined,
       parsed.success ? parsed.data.retryable : undefined,
     );
@@ -84,7 +82,7 @@ export async function apiFetch<T>(
     console.error("Unexpected response shape from", path, parsed.error);
     throw new ApiError(
       "The server sent a response this app does not understand.",
-      response.status,
+      status,
     );
   }
   return parsed.data;

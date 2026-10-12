@@ -1,9 +1,6 @@
 // @packages
 import { z } from "zod";
 
-// The contract with Django. Types are inferred from these schemas, and every
-// response is parsed with them before it reaches a component.
-
 export const RISK_LEVELS = [
   "low",
   "moderate",
@@ -27,7 +24,6 @@ export const suggestResponseSchema = z.object({
   suggestions: z.array(placeSchema),
 });
 
-// What the risk rules use.
 export const weatherSchema = z.object({
   wind_gust_mph: z.number(),
   wind_speed_mph: z.number(),
@@ -36,9 +32,6 @@ export const weatherSchema = z.object({
 });
 export type Weather = z.infer<typeof weatherSchema>;
 
-// weather, risk_level, levels and deciding_condition are null together when
-// no forecast was available for the checkpoint (data_status "missing").
-// load_rule is the text of the load rule that applied, or null if none did.
 export const checkpointSchema = z.object({
   id: z.string(),
   seq: z.number().int(),
@@ -47,7 +40,6 @@ export const checkpointSchema = z.object({
   lon: z.number(),
   eta: z.string(),
   timezone: z.string(),
-  // Miles of road this checkpoint stands for (half way to each neighbour).
   miles_represented: z.number(),
   risk_level: riskLevelSchema.nullable(),
   levels: z
@@ -74,10 +66,7 @@ export const routeSchema = z.object({
   distance_miles: z.number(),
   duration_minutes: z.number(),
   arrival_time: z.string(),
-  // 1 is the best route.
   rank: z.number().int(),
-  // Mile-weighted mean of the levels, 0 (Low) to 4 (No Travel); null when no
-  // forecast was available.
   average_risk: z.number().nullable(),
   miles_by_level: z.object({
     low: z.number(),
@@ -104,7 +93,6 @@ export const WARNING_CODES = [
   "fewer_routes",
   "missing_weather",
   "route_notice",
-  // Development only: the weather in this plan was made up, not forecast.
   "simulated_weather",
 ] as const;
 export const warningSchema = z.object({
@@ -113,11 +101,8 @@ export const warningSchema = z.object({
 });
 export type TripWarning = z.infer<typeof warningSchema>;
 
-// Risk along the trip corridor for hours 0-48. `levels[p][h]` is the level of
-// point `p` at `hour0 + h` hours: 0 (Low) to 4 (No Travel), or -1 if unknown.
 export const heatmapSchema = z.object({
   hour0: z.string(),
-  // [lon, lat]
   points: z.array(z.tuple([z.number(), z.number()])),
   levels: z.array(z.array(z.number().int())),
 });
@@ -145,8 +130,6 @@ export type TripPlanRequest = {
   departure_time: string;
   load_weight_kg: number;
   checkpoint_interval_miles: CheckpointInterval;
-  // Development only: id of a simulated-weather scenario to use instead of
-  // the real forecast. Django rejects it unless it runs with DEBUG on.
   weather_scenario?: string;
 };
 
@@ -162,6 +145,5 @@ export type WeatherScenario = z.infer<
 export const apiErrorSchema = z.object({
   detail: z.string(),
   field_errors: z.record(z.string(), z.string()).optional(),
-  // false when trying again cannot help (bad input, no route).
   retryable: z.boolean().optional(),
 });

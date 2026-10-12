@@ -1,5 +1,5 @@
 // @scripts
-import { apiFetch } from "./client";
+import { apiRequest } from "./client";
 import {
   tripPlanSchema,
   weatherScenariosSchema,
@@ -12,9 +12,9 @@ export function planTrip(
   request: TripPlanRequest,
   signal?: AbortSignal,
 ): Promise<TripPlan> {
-  return apiFetch("/trips/plan/", tripPlanSchema, {
+  return apiRequest("/trips/plan/", tripPlanSchema, {
     method: "POST",
-    body: JSON.stringify(request),
+    data: request,
     signal,
   });
 }
@@ -22,7 +22,7 @@ export function planTrip(
 export async function listWeatherScenarios(
   signal?: AbortSignal,
 ): Promise<WeatherScenario[]> {
-  const data = await apiFetch(
+  const data = await apiRequest(
     "/trips/weather-scenarios/",
     weatherScenariosSchema,
     { signal },
