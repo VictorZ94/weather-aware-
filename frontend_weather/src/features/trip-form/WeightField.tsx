@@ -1,21 +1,32 @@
-import InputAdornment from '@mui/material/InputAdornment'
-import MenuItem from '@mui/material/MenuItem'
-import Select from '@mui/material/Select'
-import TextField from '@mui/material/TextField'
-import type { Ref } from 'react'
-import type { WeightUnit } from '../../utils/units'
+// @packages
+import InputAdornment from "@mui/material/InputAdornment";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
+import TextField from "@mui/material/TextField";
+import type { Ref } from "react";
+
+// @scripts
+import type { WeightUnit } from "../../utils/units";
 
 type Props = {
-  value: string
-  onChange: (value: string) => void
-  onBlur: () => void
-  unit: WeightUnit
-  onUnitChange: (unit: WeightUnit) => void
-  error?: string
-  inputRef?: Ref<HTMLInputElement>
-}
+  value: string;
+  onChange: (value: string) => void;
+  onBlur: () => void;
+  unit: WeightUnit;
+  onUnitChange: (unit: WeightUnit) => void;
+  error?: string;
+  inputRef?: Ref<HTMLInputElement>;
+};
 
-export function WeightField({ value, onChange, onBlur, unit, onUnitChange, error, inputRef }: Props) {
+export function WeightField({
+  value,
+  onChange,
+  onBlur,
+  unit,
+  onUnitChange,
+  error,
+  inputRef,
+}: Props) {
   return (
     <TextField
       label="Cargo weight"
@@ -28,7 +39,7 @@ export function WeightField({ value, onChange, onBlur, unit, onUnitChange, error
       fullWidth
       size="small"
       slotProps={{
-        htmlInput: { inputMode: 'decimal' },
+        htmlInput: { inputMode: "decimal" },
         input: {
           endAdornment: (
             <InputAdornment position="end">
@@ -37,7 +48,7 @@ export function WeightField({ value, onChange, onBlur, unit, onUnitChange, error
                 onChange={(event) => onUnitChange(event.target.value)}
                 variant="standard"
                 disableUnderline
-                slotProps={{ input: { 'aria-label': 'Weight unit' } }}
+                slotProps={{ input: { "aria-label": "Weight unit" } }}
               >
                 <MenuItem value="lb">lb</MenuItem>
                 <MenuItem value="kg">kg</MenuItem>
@@ -47,5 +58,5 @@ export function WeightField({ value, onChange, onBlur, unit, onUnitChange, error
         },
       }}
     />
-  )
+  );
 }

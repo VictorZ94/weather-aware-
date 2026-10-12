@@ -186,6 +186,10 @@ TRUCK_PROFILE = {
 # Which wind reading the risk rules use: 'gusts' or 'sustained'.
 RISK_WIND_SOURCE = 'gusts'
 
+# Lets a plan request swap the real forecast for a made-up scenario, to see
+# extreme conditions on real routes. Never on outside development.
+ALLOW_WEATHER_SIMULATION = DEBUG
+
 
 # Logging
 

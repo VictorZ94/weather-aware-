@@ -35,6 +35,10 @@ VITE_MOCK_TRIPS=false
 
 Tests: `..\venv\Scripts\python manage.py test` in `weather_aware/` (no key or network needed). Frontend checks: `npm run lint` and `npm run build`.
 
+## Seeing extreme weather
+
+Real forecasts are usually calm. When Django runs with `DEBUG=True`, the form shows a "Simulate weather (development)" selector: the routes still come from HERE, but the forecast is replaced by a scenario (38 or 48 mph wind everywhere, a No Travel wind band on the fastest route, a blizzard at the destination, heavy rain, a storm moving through, or no forecast at all) and the real rules run on it. Simulated plans are marked with a banner. With `DEBUG=False` the selector disappears and Django refuses the option.
+
 ## The API
 
 - `GET /api/places/suggest/?q=den` — place suggestions for the origin and destination fields.

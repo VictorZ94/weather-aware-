@@ -40,7 +40,7 @@ Settings read `weather_aware/.env` (template: `.env.example`); `SECRET_KEY` is r
 
 React never calls HERE or Open-Meteo, holds no API keys, and applies no risk rules. It maps a risk level to a colour and label and nothing more; per-checkpoint `levels`, `average_risk`, `miles_by_level`, `rank`, `deciding_condition`, `load_rule`, `warnings`, the recommendation and the heatmap levels all arrive computed from Django.
 
-React makes exactly two kinds of request:
+React makes exactly two kinds of request (plus, in development only, `GET /api/trips/weather-scenarios/` for the simulator below):
 
 - `GET /api/places/suggest/?q=` — autocomplete suggestions.
 - `POST /api/trips/plan/` — everything for a trip in one response: ranked routes, checkpoints with ETA, weather and risk, warnings, and the risk heatmap for hours 0–48.
@@ -68,6 +68,8 @@ Stack: Vite 8, React 19 with the React Compiler, TypeScript 6, MUI 9 (+ MUI X da
 The `here/` package is the only code that knows HERE's URLs, parameters and response formats: `client.py` (httpx + tenacity: 3 attempts on timeouts, connection errors and 5xx, none on 4xx; `HereError` subclasses that DRF renders as `{"detail", "retryable"}`), `autosuggest.py` and `routing.py`. Views stay thin.
 
 Trip planning is a pipeline in `trips/planner.py`, one module per step: `here/routing.py` (truck routes) → `sampling.py` (distance/time profile from HERE spans, checkpoints, ETAs, miles represented) → `open_meteo.py` (forecasts per 0.1° grid cell, batched, cached 1 h) → `rules.py` + `risk.py` (levels) → `ranking.py` (order and recommendation) → `heatmap.py`. `rules.py` is the only place the thresholds and load rules are written, has no I/O, and `open_meteo.py` has no rules; keep that separation. Forecasts are fetched once for the whole corridor and shared by checkpoints and heatmap. The README lists the assumptions made where the rules were silent.
+
+**Weather simulator (development only).** `trips/simulated_weather.py` replaces the Open-Meteo forecast with a named scenario when the plan request carries `weather_scenario`, so extreme conditions can be seen on real routes; the rules, ranking and heatmap run on it unchanged. It is gated by `ALLOW_WEATHER_SIMULATION` (equal to `DEBUG`): otherwise the request is rejected and the scenario list is empty, which hides the selector in the form. Every simulated plan carries a `simulated_weather` warning. Scenarios describe weather only; no rules belong there.
 
 Place suggestions use HERE Autosuggest with `show=tz`, so coordinates and the IANA time zone come back in one call. Results are cached in memory for 24 h and the endpoint is throttled per IP. Do not send Autosuggest's `resultTypes` parameter: the live endpoint rejected every value tried, so businesses and category suggestions are filtered out in `_to_suggestion` by each item's `resultType` instead.
 

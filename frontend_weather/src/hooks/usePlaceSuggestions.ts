@@ -1,26 +1,28 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { suggestPlaces } from '../api/places'
-import { useDebouncedValue } from './useDebouncedValue'
+// @packages
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
-export const MIN_SUGGEST_CHARS = 2
-const DEBOUNCE_MS = 300
+// @scripts
+import { suggestPlaces } from "../api/places";
+import { useDebouncedValue } from "./useDebouncedValue";
+
+export const MIN_SUGGEST_CHARS = 2;
+const DEBOUNCE_MS = 300;
 
 export function usePlaceSuggestions(text: string) {
-  const trimmed = text.trim()
-  const debounced = useDebouncedValue(trimmed, DEBOUNCE_MS)
-  const longEnough = trimmed.length >= MIN_SUGGEST_CHARS
+  const trimmed = text.trim();
+  const debounced = useDebouncedValue(trimmed, DEBOUNCE_MS);
+  const longEnough = trimmed.length >= MIN_SUGGEST_CHARS;
 
   const query = useQuery({
-    queryKey: ['places', 'suggest', debounced],
+    queryKey: ["places", "suggest", debounced],
     queryFn: ({ signal }) => suggestPlaces(debounced, signal),
     enabled: longEnough && debounced.length >= MIN_SUGGEST_CHARS,
     placeholderData: keepPreviousData,
-  })
+  });
 
   return {
     options: longEnough ? (query.data ?? []) : [],
-    // Also true while waiting out the debounce, so the spinner starts at once.
     isSearching: longEnough && (query.isFetching || debounced !== trimmed),
     isError: query.isError,
-  }
+  };
 }

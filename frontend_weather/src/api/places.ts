@@ -11,6 +11,5 @@ export async function suggestPlaces(
     suggestResponseSchema,
     { signal },
   );
-  console.log("suggestPlaces", text, data.suggestions);
   return data.suggestions;
 }

@@ -29,6 +29,9 @@ const suggestHandlers = [
 const mockTrips = import.meta.env.VITE_MOCK_TRIPS !== 'false'
 
 const tripHandlers = [
+  // The mock has its own scenario destinations, so it offers no simulated weather.
+  http.get('*/api/trips/weather-scenarios/', () => HttpResponse.json({ scenarios: [] })),
+
   http.post('*/api/trips/plan/', async ({ request }) => {
     const body = (await request.json()) as TripPlanRequest
     await delay(planDelay())

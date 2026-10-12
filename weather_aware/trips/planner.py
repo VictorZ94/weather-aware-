@@ -15,6 +15,7 @@ from .open_meteo import OpenMeteoClient, grid_cell
 from .ranking import rank_routes
 from .risk import classify, route_totals
 from .sampling import build_profile, place_checkpoints, to_utc_iso
+from .simulated_weather import SCENARIO_LABELS, simulated_forecasts
 
 LB_PER_KG = 2.20462262
 FORECAST_HOURS = 48
@@ -38,6 +39,8 @@ def plan_trip(request):
     # exactly 40,000 for a load entered as 40,000 lb, not 40,000.0001.
     cargo_lb = round(cargo_kg * LB_PER_KG)
     interval = request['checkpoint_interval_miles']
+    # Development only; the serializer rejects it unless simulation is allowed.
+    scenario = request.get('weather_scenario')
 
     # Step 1: routes.
     here_routes = RoutingClient(settings.HERE_API_KEY).truck_routes(
@@ -57,9 +60,13 @@ def plan_trip(request):
     cells = corridor_cells(profiles)
     for checkpoints in checkpoints_by_route:
         cells.update(grid_cell(checkpoint['lat'], checkpoint['lon']) for checkpoint in checkpoints)
-    forecasts = OpenMeteoClient().forecasts(
-        cells, hour0, max(hour0 + timedelta(hours=FORECAST_HOURS), last_arrival) + timedelta(hours=1)
-    )
+    forecast_end = max(hour0 + timedelta(hours=FORECAST_HOURS), last_arrival) + timedelta(hours=1)
+    if scenario:
+        forecasts = simulated_forecasts(
+            scenario, cells, hour0, forecast_end, profiles, (destination['lat'], destination['lon'])
+        )
+    else:
+        forecasts = OpenMeteoClient().forecasts(cells, hour0, forecast_end)
 
     routes = []
     notices = []
@@ -103,6 +110,14 @@ def plan_trip(request):
     heatmap = build_heatmap(cells, forecasts, hour0, cargo_lb)
 
     warnings = []
+    if scenario:
+        # First, so a simulated result is never mistaken for a real forecast.
+        warnings.append(
+            {
+                'code': 'simulated_weather',
+                'message': f'Simulated weather: {SCENARIO_LABELS[scenario]}. Not a real forecast.',
+            }
+        )
     if all_no_travel:
         warnings.append(
             {
