@@ -218,7 +218,7 @@ export function TripForm({ onSubmit, isLoading, serverFieldErrors }: Props) {
           render={({ field, fieldState }) => (
             <TextField
               select
-              label="Simulate weather (development)"
+              label="Simulate weather (test)"
               value={field.value}
               onChange={field.onChange}
               onBlur={field.onBlur}
@@ -230,7 +230,7 @@ export function TripForm({ onSubmit, isLoading, serverFieldErrors }: Props) {
                 fieldState.error?.message ??
                 weatherScenarios.find((scenario) => scenario.id === field.value)
                   ?.description ??
-                "Uses the real Open-Meteo forecast"
+                "Uses the real NWS forecast"
               }
               slotProps={{
                 select: { displayEmpty: true },

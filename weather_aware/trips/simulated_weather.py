@@ -1,13 +1,13 @@
 """Made-up weather for development, so extreme conditions can be seen on real routes.
 
-Returns the same {cell: Forecast} as OpenMeteoClient.forecasts, so the rules,
+Returns the same {cell: Forecast} as NwsClient.forecasts, so the rules,
 ranking and heatmap run on it unchanged. Only reachable when
 settings.ALLOW_WEATHER_SIMULATION is on. No risk rules in here: scenarios
 only say what the weather is.
 """
 
+from .forecast import Forecast
 from .geometry import haversine_miles
-from .open_meteo import Forecast
 
 SCENARIOS = [
     {'id': 'calm', 'label': 'Calm', 'description': 'Light wind and dry everywhere.'},

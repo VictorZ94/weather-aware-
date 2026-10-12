@@ -34,14 +34,14 @@ class TripPlanRequestSerializer(serializers.Serializer):
         error_messages={'required': 'Choose a checkpoint interval.'}
     )
 
-    # Development only: replaces the forecast with a made-up scenario.
+    # Replaces the forecast with a made-up scenario, where the server allows it.
     weather_scenario = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def validate_weather_scenario(self, value):
         if not value:
             return None
         if not settings.ALLOW_WEATHER_SIMULATION:
-            raise serializers.ValidationError('Weather simulation is only available in development.')
+            raise serializers.ValidationError('Weather simulation is turned off on this server.')
         if value not in SCENARIO_LABELS:
             raise serializers.ValidationError('Unknown weather scenario.')
         return value

@@ -1,11 +1,10 @@
 from datetime import datetime, timedelta, timezone
 
 import httpx
-from django.core.cache import cache
 from django.test import SimpleTestCase
 
+from trips.forecast import Forecast, grid_cell
 from trips.heatmap import build_heatmap, corridor_cells, start_hour
-from trips.open_meteo import Forecast, OpenMeteoClient, grid_cell
 
 START = datetime(2026, 10, 12, 0, 0, tzinfo=timezone.utc)
 
@@ -21,21 +20,36 @@ def forecast(gust, rain=None, snow=None):
     )
 
 
-def open_meteo_payload(request, gust=10.0, rain=0.0, showers=0.0, hours=96):
-    """What Open-Meteo answers: one object per requested location, in order."""
-    count = len(request.url.params['latitude'].split(','))
-    times = [(START + timedelta(hours=h)).strftime('%Y-%m-%dT%H:%M') for h in range(hours)]
-    location = {
-        'hourly': {
-            'time': times,
-            'wind_gusts_10m': [gust] * hours,
-            'wind_speed_10m': [gust / 2] * hours,
-            'rain': [rain] * hours,
-            'showers': [showers] * hours,
-            'snowfall': [0.0] * hours,
+def nws_answer(gust=10.0, rain=0.0, hours=96):
+    """What NWS answers for a grid forecast, given gusts in mph and rain in inches per hour."""
+
+    def series(uom, value):
+        return {'uom': uom, 'values': [{'validTime': f'{START.isoformat()}/PT{hours}H', 'value': value}]}
+
+    return {
+        'properties': {
+            'windGust': series('wmoUnit:km_h-1', gust * 1.609344),
+            'windSpeed': series('wmoUnit:km_h-1', gust / 2 * 1.609344),
+            'quantitativePrecipitation': series('wmoUnit:mm', rain * hours * 25.4),
+            'snowfallAmount': series('wmoUnit:mm', 0),
         }
     }
-    return location if count == 1 else [location] * count
+
+
+def nws_handler(requests=None, status=200, **weather):
+    """A fake NWS: any /points lookup leads to one grid forecast with this weather."""
+
+    def handle(request):
+        if requests is not None:
+            requests.append(request)
+        if status != 200:
+            return httpx.Response(status)
+        if '/points/' in request.url.path:
+            grid = 'https://api.weather.gov/gridpoints/TST/1,1'
+            return httpx.Response(200, json={'properties': {'forecastGridData': grid}})
+        return httpx.Response(200, json=nws_answer(**weather))
+
+    return handle
 
 
 class ForecastTests(SimpleTestCase):
@@ -61,70 +75,10 @@ class ForecastTests(SimpleTestCase):
         self.assertIsNone(f.around(START + timedelta(hours=2, minutes=30)))  # runs off the end
 
 
-class OpenMeteoClientTests(SimpleTestCase):
-    def setUp(self):
-        cache.clear()
-        self.requests = []
-
-    def make_client(self, handler):
-        def recording(request):
-            self.requests.append(request)
-            return handler(request)
-
-        client = OpenMeteoClient()
-        client.transport = httpx.MockTransport(recording)
-        return client
-
-    def test_asks_for_mph_inches_and_utc_and_adds_showers_to_rain(self):
-        client = self.make_client(lambda r: httpx.Response(200, json=open_meteo_payload(r, rain=0.2, showers=0.4)))
-
-        found = client.forecasts([(39.7, -105.0)], START, START + timedelta(hours=48))
-
-        params = self.requests[0].url.params
-        self.assertEqual(params['wind_speed_unit'], 'mph')
-        self.assertEqual(params['precipitation_unit'], 'inch')
-        self.assertEqual(params['timezone'], 'UTC')
-        self.assertIn('showers', params['hourly'])
-        self.assertEqual((params['start_date'], params['end_date']), ('2026-10-12', '2026-10-14'))
-        self.assertAlmostEqual(found[(39.7, -105.0)].around(START)['rain_in'], 0.6)
-
-    def test_nearby_points_share_a_grid_cell_and_duplicates_are_asked_once(self):
-        self.assertEqual(grid_cell(39.7392, -104.9903), grid_cell(39.71, -105.04))
-        client = self.make_client(lambda r: httpx.Response(200, json=open_meteo_payload(r)))
-
-        client.forecasts([(39.7, -105.0), (39.7, -105.0), (41.1, -104.8)], START, START + timedelta(hours=48))
-
-        self.assertEqual(len(self.requests), 1)
-        self.assertEqual(self.requests[0].url.params['latitude'], '39.7,41.1')
-
-    def test_many_cells_are_split_into_batches_of_100(self):
-        client = self.make_client(lambda r: httpx.Response(200, json=open_meteo_payload(r)))
-        cells = [(30 + i / 10, -100.0) for i in range(250)]
-
-        found = client.forecasts(cells, START, START + timedelta(hours=48))
-
-        self.assertEqual(sorted(len(r.url.params['latitude'].split(',')) for r in self.requests), [50, 100, 100])
-        self.assertEqual(len(found), 250)
-
-    def test_second_call_is_served_from_cache(self):
-        client = self.make_client(lambda r: httpx.Response(200, json=open_meteo_payload(r)))
-
-        client.forecasts([(39.7, -105.0)], START, START + timedelta(hours=48))
-        client.forecasts([(39.7, -105.0)], START, START + timedelta(hours=48))
-
-        self.assertEqual(len(self.requests), 1)
-
-    def test_a_failing_service_leaves_cells_missing_instead_of_raising(self):
-        client = self.make_client(lambda r: httpx.Response(503))
-
-        with self.assertLogs('trips.open_meteo', level='WARNING'):
-            found = client.forecasts([(39.7, -105.0)], START, START + timedelta(hours=48))
-
-        self.assertEqual(found, {})
-        self.assertEqual(len(self.requests), 2)  # one retry
-
-
 class HeatmapTests(SimpleTestCase):
+    def test_nearby_points_share_a_grid_cell(self):
+        self.assertEqual(grid_cell(39.7392, -104.9903), grid_cell(39.71, -105.04))
+
     def test_hour_zero_is_the_departure_rounded_down(self):
         departure = datetime(2026, 10, 12, 6, 47, 12, tzinfo=timezone.utc)
 
