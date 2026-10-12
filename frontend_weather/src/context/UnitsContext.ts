@@ -1,11 +1,9 @@
 import { createContext, useContext } from 'react'
-import type { TemperatureUnit, WeightUnit } from '../utils/units'
+import type { WeightUnit } from '../utils/units'
 
 export type Units = {
   weightUnit: WeightUnit
-  temperatureUnit: TemperatureUnit
   setWeightUnit: (unit: WeightUnit) => void
-  setTemperatureUnit: (unit: TemperatureUnit) => void
 }
 
 export const UnitsContext = createContext<Units | null>(null)

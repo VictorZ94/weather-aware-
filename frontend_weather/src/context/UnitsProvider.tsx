@@ -1,9 +1,8 @@
 import { useState, type ReactNode } from 'react'
-import type { TemperatureUnit, WeightUnit } from '../utils/units'
+import type { WeightUnit } from '../utils/units'
 import { UnitsContext } from './UnitsContext'
 
 const WEIGHT_KEY = 'units.weight'
-const TEMPERATURE_KEY = 'units.temperature'
 
 function readStored<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
@@ -26,21 +25,14 @@ export function UnitsProvider({ children }: { children: ReactNode }) {
   const [weightUnit, setWeight] = useState<WeightUnit>(() =>
     readStored(WEIGHT_KEY, ['lb', 'kg'], 'lb'),
   )
-  const [temperatureUnit, setTemperature] = useState<TemperatureUnit>(() =>
-    readStored(TEMPERATURE_KEY, ['F', 'C'], 'F'),
-  )
 
   const setWeightUnit = (unit: WeightUnit) => {
     setWeight(unit)
     store(WEIGHT_KEY, unit)
   }
-  const setTemperatureUnit = (unit: TemperatureUnit) => {
-    setTemperature(unit)
-    store(TEMPERATURE_KEY, unit)
-  }
 
   return (
-    <UnitsContext value={{ weightUnit, temperatureUnit, setWeightUnit, setTemperatureUnit }}>
+    <UnitsContext value={{ weightUnit, setWeightUnit }}>
       {children}
     </UnitsContext>
   )

@@ -27,14 +27,12 @@ export const suggestResponseSchema = z.object({
   suggestions: z.array(placeSchema),
 });
 
-// Wind, rain and snow are what the risk rules use. Temperature is shown for
-// information only.
+// What the risk rules use.
 export const weatherSchema = z.object({
   wind_gust_mph: z.number(),
   wind_speed_mph: z.number(),
   rain_in: z.number(),
   snow_in: z.number(),
-  temperature_c: z.number().nullable(),
 });
 export type Weather = z.infer<typeof weatherSchema>;
 
