@@ -49,7 +49,6 @@ export async function apiRequest<T>(
     body = response.data;
     status = response.status;
   } catch (error) {
-    // Cancelled by the caller (TanStack Query): let it through untouched.
     if (axios.isCancel(error)) throw error;
     if (!axios.isAxiosError(error)) throw error;
 
