@@ -25,6 +25,7 @@ import { useWeatherScenarios } from "../../hooks/useWeatherScenarios";
 import { dayjs, wallClockInZone } from "../../utils/dayjs";
 import { fromKg, toKg, type WeightUnit } from "../../utils/units";
 import {
+  MAX_DAYS_AHEAD,
   tripSchema,
   type TripFormValues,
   type ValidTripFormValues,
@@ -152,6 +153,7 @@ export function TripForm({ onSubmit, isLoading, serverFieldErrors }: Props) {
             onChange={field.onChange}
             inputRef={field.ref}
             disablePast
+            maxDateTime={dayjs().add(MAX_DAYS_AHEAD, "day")}
             slotProps={{
               textField: {
                 size: "small",

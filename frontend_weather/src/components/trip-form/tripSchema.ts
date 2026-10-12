@@ -5,6 +5,8 @@ import { z } from "zod";
 import { CHECKPOINT_INTERVALS, placeSchema } from "../../api/schemas";
 import { dayjs, wallClockInZone, type Dayjs } from "../../utils/dayjs";
 
+export const MAX_DAYS_AHEAD = 7;
+
 export const tripSchema = z
   .object({
     origin: placeSchema
@@ -56,6 +58,13 @@ export const tripSchema = z
           code: "custom",
           path: ["departure"],
           message: "Departure cannot be in the past",
+        });
+      }
+      if (departsAt.isAfter(dayjs().add(MAX_DAYS_AHEAD, "day"))) {
+        context.addIssue({
+          code: "custom",
+          path: ["departure"],
+          message: `Departure can be at most ${MAX_DAYS_AHEAD} days ahead`,
         });
       }
     }
