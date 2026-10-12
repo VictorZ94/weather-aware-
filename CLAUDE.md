@@ -47,7 +47,7 @@ React makes exactly two kinds of request (plus, in development only, `GET /api/t
 
 ## Frontend architecture
 
-Stack: Vite 8, React 19 with the React Compiler, TypeScript 6, MUI 9 (+ MUI X date pickers), react-hook-form + zod 4, TanStack Query 5, MapLibre GL 6 through `react-map-gl/maplibre`, Day.js, MSW 3. Several of these are recent majors with changed APIs; check current docs before writing against them.
+Stack: Vite 8, React 19 with the React Compiler, TypeScript 6, MUI 9 (+ MUI X date pickers), react-hook-form + zod 4, TanStack Query 5, Axios 1 (only inside `api/client.ts`), MapLibre GL 6 through `react-map-gl/maplibre`, Day.js, MSW 3. Several of these are recent majors with changed APIs; check current docs before writing against them.
 
 **The contract lives in `src/api/schemas.ts`.** zod schemas define every response, TypeScript types are inferred from them, and `api/client.ts` parses each response before it reaches a component. When the Django API is built it must match these schemas; change the schema first when the contract changes. The API takes cargo in kg and sends wind in mph and rain and snow in inches per hour (the units of the risk rules). Times are ISO 8601; ETAs come in UTC with the checkpoint's IANA `timezone` beside them.
 
