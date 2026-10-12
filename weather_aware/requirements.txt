@@ -6,3 +6,4 @@ httpx==0.28.1
 tenacity==9.2.1
 flexpolyline==0.1.0
 timezonefinder==9.0.0
+gunicorn==26.2.0

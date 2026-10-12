@@ -17,6 +17,8 @@ HERE_LIMIT = 20
 
 
 class AutosuggestClient(HereClient):
+    """Client for HERE Autosuggest (Geocoding & Search API v7)."""
+    
     service = 'Place search'
 
     def autosuggest(self, text):
