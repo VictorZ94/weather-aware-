@@ -8,7 +8,7 @@ import { apiErrorSchema } from "./schemas";
 const TIMEOUT_MS = 60_000;
 
 const http = axios.create({
-  baseURL: import.meta.env.API_BASE_URL ?? "/api",
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? "/api",
   timeout: TIMEOUT_MS,
   headers: { Accept: "application/json" },
 });
