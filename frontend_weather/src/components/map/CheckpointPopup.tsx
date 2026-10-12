@@ -7,14 +7,8 @@ import { Popup } from "react-map-gl/maplibre";
 
 // @scripts
 import type { Checkpoint, RiskLevel } from "../../api/schemas";
-import { useUnits } from "../../context/UnitsContext";
 import { RISK_COLORS, RISK_LABELS, UNKNOWN_RISK_COLOR } from "../../theme";
-import {
-  formatLocalTime,
-  formatRain,
-  formatSnow,
-  formatTemperature,
-} from "../../utils/format";
+import { formatLocalTime, formatRain, formatSnow } from "../../utils/format";
 
 type Props = {
   checkpoint: Checkpoint;
@@ -70,7 +64,6 @@ function Detail({ label, text }: { label: string; text: string }) {
 }
 
 export function CheckpointPopup({ checkpoint, onClose }: Props) {
-  const { temperatureUnit } = useUnits();
   const { weather, levels, risk_level: risk } = checkpoint;
   const color = risk ? RISK_COLORS[risk] : UNKNOWN_RISK_COLOR;
 
@@ -113,12 +106,12 @@ export function CheckpointPopup({ checkpoint, onClose }: Props) {
             />
             <ConditionRow
               label="Rain"
-              value={formatRain(weather.rain_in, temperatureUnit)}
+              value={formatRain(weather.rain_in)}
               level={levels.rain}
             />
             <ConditionRow
               label="Snow"
-              value={formatSnow(weather.snow_in, temperatureUnit)}
+              value={formatSnow(weather.snow_in)}
               level={levels.snow}
             />
             <Typography
@@ -126,8 +119,6 @@ export function CheckpointPopup({ checkpoint, onClose }: Props) {
               sx={{ color: "text.secondary", display: "block", mt: 0.5 }}
             >
               Sustained wind {Math.round(weather.wind_speed_mph)} mph
-              {weather.temperature_c !== null &&
-                ` · ${formatTemperature(weather.temperature_c, temperatureUnit)}`}
             </Typography>
           </Box>
         ) : (

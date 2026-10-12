@@ -18,7 +18,7 @@ BATCH_SIZE = 100
 CACHE_SECONDS = 60 * 60
 # `showers` is convective rain (downpours), which Open-Meteo reports
 # separately from `rain`. The rules need both together.
-HOURLY = 'wind_gusts_10m,wind_speed_10m,rain,showers,snowfall,temperature_2m'
+HOURLY = 'wind_gusts_10m,wind_speed_10m,rain,showers,snowfall'
 
 
 def grid_cell(lat, lon):
@@ -29,13 +29,12 @@ def grid_cell(lat, lon):
 class Forecast:
     """Hourly values for one grid cell, starting at `start` (UTC, on the hour)."""
 
-    def __init__(self, start, gust, wind, rain, snow, temperature):
+    def __init__(self, start, gust, wind, rain, snow):
         self.start = start
         self.gust = gust
         self.wind = wind
         self.rain = rain
         self.snow = snow
-        self.temperature = temperature
 
     def at_hour(self, moment):
         """Weather for the forecast hour containing `moment`, or None if not covered."""
@@ -50,22 +49,16 @@ class Forecast:
             'wind_speed_mph': values[1],
             'rain_in': values[2],
             'snow_in': values[3],
-            'temperature_c': self.temperature[index],
         }
 
     def around(self, moment):
-        """Weather at an arbitrary time: the worse of the two forecast hours around it.
-
-        Temperature is informational and taken from the earlier hour.
-        """
+        """Weather at an arbitrary time: the worse of the two forecast hours around it."""
         earlier = self.at_hour(moment)
         on_the_hour = moment.minute == 0 and moment.second == 0
         later = earlier if on_the_hour else self.at_hour(moment + timedelta(hours=1))
         if earlier is None or later is None:
             return None
-        worse = {key: max(earlier[key], later[key]) for key in earlier if key != 'temperature_c'}
-        worse['temperature_c'] = earlier['temperature_c']
-        return worse
+        return {key: max(earlier[key], later[key]) for key in earlier}
 
 
 class OpenMeteoClient:
@@ -151,5 +144,4 @@ def _to_forecast(location):
         wind=hourly['wind_speed_10m'],
         rain=rain,
         snow=hourly['snowfall'],
-        temperature=hourly['temperature_2m'],
     )

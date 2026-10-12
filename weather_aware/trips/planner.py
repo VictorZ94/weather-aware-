@@ -188,7 +188,6 @@ def _checkpoint_json(route_id, checkpoint):
             'wind_speed_mph': round(weather['wind_speed_mph'], 1),
             'rain_in': round(weather['rain_in'], 3),
             'snow_in': round(weather['snow_in'], 3),
-            'temperature_c': weather['temperature_c'],
         },
     }
 

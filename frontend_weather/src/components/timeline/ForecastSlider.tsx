@@ -1,9 +1,6 @@
 // @packages
-import FormControlLabel from "@mui/material/FormControlLabel";
 import Paper from "@mui/material/Paper";
 import Slider from "@mui/material/Slider";
-import Stack from "@mui/material/Stack";
-import Switch from "@mui/material/Switch";
 import Typography from "@mui/material/Typography";
 
 // @scripts
@@ -20,8 +17,6 @@ type Props = {
   onHourChange: (hour: number) => void;
   startTime: string;
   timezone: string;
-  showTrucks: boolean;
-  onShowTrucksChange: (show: boolean) => void;
 };
 
 export function ForecastSlider({
@@ -29,8 +24,6 @@ export function ForecastSlider({
   onHourChange,
   startTime,
   timezone,
-  showTrucks,
-  onShowTrucksChange,
 }: Props) {
   const timeAt = (offset: number) =>
     formatLocalTime(
@@ -44,33 +37,12 @@ export function ForecastSlider({
       elevation={3}
       sx={{ px: { xs: 3, md: 4 }, pt: 1.5, pb: 1, zIndex: 3 }}
     >
-      <Stack
-        direction="row"
-        sx={{
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          columnGap: 2,
-        }}
-      >
-        <Typography variant="body2">
-          Risk forecast for{" "}
-          <Typography component="span" variant="body2" sx={{ fontWeight: 700 }}>
-            +{hour} h · {timeAt(hour)}
-          </Typography>
+      <Typography variant="body2">
+        Risk forecast for{" "}
+        <Typography component="span" variant="body2" sx={{ fontWeight: 700 }}>
+          +{hour} h · {timeAt(hour)}
         </Typography>
-        <FormControlLabel
-          control={
-            <Switch
-              size="small"
-              checked={showTrucks}
-              onChange={(event) => onShowTrucksChange(event.target.checked)}
-            />
-          }
-          label={<Typography variant="body2">Show trucks</Typography>}
-          sx={{ mr: 0 }}
-        />
-      </Stack>
+      </Typography>
       <Slider
         value={hour}
         onChange={(_, value) => onHourChange(value)}

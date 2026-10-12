@@ -113,7 +113,7 @@ class PlanTripTests(APITestCase):
         self.assertEqual(checkpoint['data_status'], 'ok')
         self.assertEqual(
             set(checkpoint['weather']),
-            {'wind_gust_mph', 'wind_speed_mph', 'rain_in', 'snow_in', 'temperature_c'},
+            {'wind_gust_mph', 'wind_speed_mph', 'rain_in', 'snow_in'},
         )
 
     def test_line_is_lon_lat_from_origin_to_destination(self):

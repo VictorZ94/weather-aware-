@@ -19,7 +19,6 @@ import { HeatmapLayer } from "./HeatmapLayer";
 import "./maplibreWorker";
 import { RiskLegend } from "./RiskLegend";
 import { ROUTE_HIT_LAYER_ID, RouteLayers } from "./RouteLayers";
-import { TruckMarkers } from "./TruckMarkers";
 
 const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 const USA_VIEW = { longitude: -98.5, latitude: 39.5, zoom: 3.6 };
@@ -29,7 +28,6 @@ type Props = {
   selectedRouteId: string | null;
   onSelectRoute: (routeId: string) => void;
   hour: number;
-  showTrucks: boolean;
 };
 
 export function RouteMap({
@@ -37,7 +35,6 @@ export function RouteMap({
   selectedRouteId,
   onSelectRoute,
   hour,
-  showTrucks,
 }: Props) {
   const mapRef = useRef<MapRef>(null);
   const [loaded, setLoaded] = useState(false);
@@ -128,14 +125,6 @@ export function RouteMap({
               color="#c62828"
             />
 
-            {showTrucks && (
-              <TruckMarkers
-                plan={plan}
-                hour={hour}
-                selectedRouteId={selectedRouteId}
-                onSelectRoute={onSelectRoute}
-              />
-            )}
             {popupCheckpoint && (
               <CheckpointPopup
                 key={popupCheckpoint.id}

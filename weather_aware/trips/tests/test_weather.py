@@ -18,7 +18,6 @@ def forecast(gust, rain=None, snow=None):
         wind=[value / 2 if value is not None else None for value in gust],
         rain=rain or [0.0] * hours,
         snow=snow or [0.0] * hours,
-        temperature=[10.0 + hour for hour in range(hours)],
     )
 
 
@@ -34,7 +33,6 @@ def open_meteo_payload(request, gust=10.0, rain=0.0, showers=0.0, hours=96):
             'rain': [rain] * hours,
             'showers': [showers] * hours,
             'snowfall': [0.0] * hours,
-            'temperature_2m': [15.0] * hours,
         }
     }
     return location if count == 1 else [location] * count
@@ -48,7 +46,6 @@ class ForecastTests(SimpleTestCase):
 
         self.assertEqual(weather['wind_gust_mph'], 40)  # from the later hour
         self.assertEqual(weather['rain_in'], 0.3)  # from the earlier hour
-        self.assertEqual(weather['temperature_c'], 10.0)
 
     def test_exactly_on_the_hour_uses_that_hour_only(self):
         f = forecast(gust=[10, 40, 20])

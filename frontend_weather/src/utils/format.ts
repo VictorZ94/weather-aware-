@@ -1,6 +1,5 @@
 // @scripts
 import { dayjs } from "./dayjs";
-import { celsiusToFahrenheit, inchesToMm, type TemperatureUnit } from "./units";
 
 export function formatMiles(miles: number): string {
   return `${Math.round(miles).toLocaleString("en-US")} mi`;
@@ -22,24 +21,11 @@ export function formatLocalTime(
   return dayjs(iso).tz(zone).format(pattern);
 }
 
-export function formatTemperature(
-  celsius: number,
-  unit: TemperatureUnit,
-): string {
-  const value = unit === "C" ? celsius : celsiusToFahrenheit(celsius);
-  return `${Math.round(value)} °${unit}`;
-}
-
 // Django sends precipitation in inches per hour (the unit of the risk rules).
-// Display follows the temperature unit: inches with °F, metric with °C.
-export function formatRain(inches: number, unit: TemperatureUnit): string {
-  return unit === "C"
-    ? `${inchesToMm(inches).toFixed(1)} mm/h`
-    : `${inches.toFixed(2)} in/h`;
+export function formatRain(inches: number): string {
+  return `${inches.toFixed(2)} in/h`;
 }
 
-export function formatSnow(inches: number, unit: TemperatureUnit): string {
-  return unit === "C"
-    ? `${(inchesToMm(inches) / 10).toFixed(1)} cm/h`
-    : `${inches.toFixed(1)} in/h`;
+export function formatSnow(inches: number): string {
+  return `${inches.toFixed(1)} in/h`;
 }

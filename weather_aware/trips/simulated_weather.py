@@ -72,7 +72,6 @@ def simulated_forecasts(scenario, cells, start, end, profiles, destination):
             wind=[round(gust * 0.6, 1) for gust in gusts],
             rain=[reading[1] for reading in readings],
             snow=snow,
-            temperature=[-3.0 if amount > 0 else 12.0 for amount in snow],
         )
     return forecasts
 

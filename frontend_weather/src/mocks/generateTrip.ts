@@ -146,7 +146,6 @@ function weatherAt(cells: Cell[], lon: number, lat: number, hour: number): Weath
     wind_speed_mph: round(gust * 0.6, 0),
     rain_in: kind === 'rain' && i > 0.2 ? round(1.1 * i * i, 2) : 0,
     snow_in: kind === 'snow' && i > 0.25 ? round(3.2 * i * i, 1) : 0,
-    temperature_c: round(kind === 'snow' ? 4 - 12 * i : kind === 'rain' ? 14 - 4 * i : 16 - 3 * i),
   }
 }
 

@@ -5,8 +5,6 @@ import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import ToggleButton from "@mui/material/ToggleButton";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
@@ -15,26 +13,23 @@ import { useState } from "react";
 import { ErrorAlert } from "./components/ErrorAlert";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { LoadingOverlay } from "./components/LoadingOverlay";
-import { RouteMap } from "./features/map/RouteMap";
-import { RouteCardList } from "./features/routes/RouteCardList";
-import { WarningBanner } from "./features/routes/WarningBanner";
-import { ForecastSlider } from "./features/timeline/ForecastSlider";
-import { TripForm } from "./features/trip-form/TripForm";
+import { RouteMap } from "./components/map/RouteMap";
+import { RouteCardList } from "./components/routes/RouteCardList";
+import { WarningBanner } from "./components/routes/WarningBanner";
+import { ForecastSlider } from "./components/timeline/ForecastSlider";
+import { TripForm } from "./components/trip-form/TripForm";
 
 // @scripts
 import type { TripPlan } from "./api/schemas";
-import { useUnits } from "./context/UnitsContext";
 import { usePlanTrip } from "./hooks/usePlanTrip";
 
 const PANEL_WIDTH = 400;
 
 function App() {
   const { plan, isLoading, error, submit, retry } = usePlanTrip();
-  const { temperatureUnit, setTemperatureUnit } = useUnits();
 
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [hour, setHour] = useState(0);
-  const [showTrucks, setShowTrucks] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
 
   const [shownPlan, setShownPlan] = useState<TripPlan | null>(null);
@@ -71,26 +66,7 @@ function App() {
         }}
       >
         <Stack spacing={2}>
-          <Stack
-            direction="row"
-            sx={{ justifyContent: "space-between", alignItems: "center" }}
-          >
-            <Typography variant="h1">Safe route planner</Typography>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={temperatureUnit}
-              onChange={(_, unit) => unit !== null && setTemperatureUnit(unit)}
-              aria-label="Temperature unit"
-            >
-              <ToggleButton value="F" sx={{ px: 1.25, py: 0.25 }}>
-                °F
-              </ToggleButton>
-              <ToggleButton value="C" sx={{ px: 1.25, py: 0.25 }}>
-                °C
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </Stack>
+          <Typography variant="h1">Safe route planner</Typography>
 
           <Paper variant="outlined" sx={{ p: 2 }}>
             <TripForm
@@ -138,7 +114,6 @@ function App() {
               selectedRouteId={selectedRouteId}
               onSelectRoute={setSelectedRouteId}
               hour={hour}
-              showTrucks={showTrucks}
             />
           </ErrorBoundary>
 
@@ -203,8 +178,6 @@ function App() {
             onHourChange={setHour}
             startTime={plan.heatmap.hour0}
             timezone={plan.origin.timezone}
-            showTrucks={showTrucks}
-            onShowTrucksChange={setShowTrucks}
           />
         )}
       </Box>
