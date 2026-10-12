@@ -2,7 +2,7 @@
 
 from datetime import timedelta
 
-from .open_meteo import grid_cell
+from .forecast import grid_cell
 from .risk import level_at
 
 HOURS = 49  # hour 0 (departure) to hour 48

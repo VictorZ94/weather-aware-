@@ -11,9 +11,9 @@ from rest_framework.test import APITestCase
 from tenacity import wait_none
 
 from here.client import HereClient
-from trips.open_meteo import OpenMeteoClient
+from trips.nws import NwsClient
 
-from .test_weather import START, open_meteo_payload
+from .test_weather import START, nws_handler
 
 URL = '/api/trips/plan/'
 FAKE_KEY = 'test-here-key'
@@ -56,15 +56,13 @@ class PlanTripTests(APITestCase):
                 raise self.here_answer
             return self.here_answer
 
-        def open_meteo(request):
-            if self.weather_status != 200:
-                return httpx.Response(self.weather_status)
-            return httpx.Response(200, json=open_meteo_payload(request, **self.weather))
+        def nws(request):
+            return nws_handler(status=self.weather_status, **self.weather)(request)
 
         patches = [
             mock.patch.object(HereClient, 'transport', httpx.MockTransport(here)),
             mock.patch.object(HereClient, 'wait', wait_none()),
-            mock.patch.object(OpenMeteoClient, 'transport', httpx.MockTransport(open_meteo)),
+            mock.patch.object(NwsClient, 'transport', httpx.MockTransport(nws)),
             # "Now" is just before the departure, so the fixed test dates are valid.
             mock.patch('django.utils.timezone.now', return_value=DEPARTURE - timedelta(hours=1)),
         ]
@@ -204,7 +202,7 @@ class PlanTripTests(APITestCase):
     def test_weather_outage_still_returns_routes_marked_unknown(self):
         self.weather_status = 503
 
-        with self.assertLogs('trips.open_meteo', level='WARNING'):
+        with self.assertLogs('trips.nws', level='WARNING'):
             response = self.plan()
 
         self.assertEqual(response.status_code, 200)

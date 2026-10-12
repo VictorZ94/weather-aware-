@@ -3,7 +3,7 @@
 Plans a truck trip and shows up to 3 routes with the weather risk along each, so a driver can pick the safest one. For every route it samples the forecast every 10, 25 or 50 miles at the time the truck will be there, rates each checkpoint with the risk and load rules, recommends a route, and draws a risk heatmap for the next 48 hours.
 
 - `frontend_weather/` — React, MUI and MapLibre. Draws what Django sends; holds no API keys and applies no risk rules.
-- `weather_aware/` — Django REST Framework. Gets truck routes from HERE and forecasts from Open-Meteo, applies the rules, ranks the routes.
+- `weather_aware/` — Django REST Framework. Gets truck routes from HERE and forecasts from the US National Weather Service, applies the rules, ranks the routes.
 - `docs/` — the plans each stage was built from.
 
 ## Running it
@@ -17,7 +17,7 @@ copy .env.example .env        # then set HERE_API_KEY and SECRET_KEY
 ..\venv\Scripts\python manage.py runserver
 ```
 
-A free HERE key comes from platform.here.com (Access Manager → your app → API keys). Open-Meteo needs no key.
+A free HERE key comes from platform.here.com (Access Manager → your app → API keys). The forecast comes from the US National Weather Service (NWS), which needs no key; set `NWS_USER_AGENT` in `.env` to a name and contact for your deployment.
 
 Frontend (from `frontend_weather/`):
 
@@ -37,7 +37,7 @@ Tests: `..\venv\Scripts\python manage.py test` in `weather_aware/` (no key or ne
 
 ## Seeing extreme weather
 
-Real forecasts are usually calm. When Django runs with `DEBUG=True`, the form shows a "Simulate weather (development)" selector: the routes still come from HERE, but the forecast is replaced by a scenario (38 or 48 mph wind everywhere, a No Travel wind band on the fastest route, a blizzard at the destination, heavy rain, a storm moving through, or no forecast at all) and the real rules run on it. Simulated plans are marked with a banner. With `DEBUG=False` the selector disappears and Django refuses the option.
+Real forecasts are usually calm. When Django has `ALLOW_WEATHER_SIMULATION=True`, the form shows a "Simulate weather (test)" selector: the routes still come from HERE, but the forecast is replaced by a scenario (38 or 48 mph wind everywhere, a No Travel wind band on the fastest route, a blizzard at the destination, heavy rain, a storm moving through, or no forecast at all) and the real rules run on it. Simulated plans are marked with a banner. With the switch off the selector disappears and Django refuses the option. When the variable is not set it follows `DEBUG`, so it is on in local development and off in production unless you turn it on there.
 
 ## The API
 
@@ -77,7 +77,9 @@ The rules leave some gaps. Each choice below is cautious and easy to change.
 | Cargo or gross weight? | Cargo. HERE gets cargo + 35,000 lb | An empty truck alone exceeds 30,000 lb, so the load rules only make sense for cargo |
 | Values on shared boundaries | Go to the higher level | Cautious |
 | Sustained wind or gusts? | Gusts (`RISK_WIND_SOURCE` in settings switches it) | Gusts cause blow-overs |
-| Rain variable | Open-Meteo `rain` + `showers` | Open-Meteo reports downpours separately as `showers` |
+| Rain and snow rate | NWS gives totals for blocks of about 6 hours; the hourly rate is the total divided by the hours | NWS has no hourly amounts. A short downpour inside a block reads lower than it was |
+| Where weather is read | One NWS forecast per 0.25° (about 17 miles), shared by the points inside it | NWS takes one location per request |
+| Forecast length | NWS covers about 8 days; later hours are unknown | A trip leaving 6–7 days ahead can run past it |
 | No Travel is not in the ranking list | Never recommended unless every route has some; then the one with the fewest No Travel miles, with a warning | Speed cannot offset a No Travel stretch |
 | "Average risk" undefined | Mile-weighted mean of the levels 0–4 | Simple and explainable |
 | Ties | Severe and High miles compare to the nearest 5 miles, average risk to one decimal | Tiny differences should not decide |

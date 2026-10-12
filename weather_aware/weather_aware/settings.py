@@ -19,7 +19,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Secrets and per-machine settings come from .env (see .env.example).
 env = environ.Env()
-environ.Env.read_env(BASE_DIR / '.env')
+# The file wins over variables already in the environment: runserver's
+# reloader hands each restart the values read at first start, so without
+# this an edit to .env would be ignored until the server was fully stopped.
+# Hosts without a .env file (production) are unaffected.
+environ.Env.read_env(BASE_DIR / '.env', overwrite=True)
 
 
 # Quick-start development settings - unsuitable for production
@@ -153,7 +157,7 @@ REST_FRAMEWORK = {
     # Keeps a stuck client from burning the HERE quota.
     'DEFAULT_THROTTLE_CLASSES': ['rest_framework.throttling.AnonRateThrottle'],
     # 'plan' is the trip-planning endpoint: each call costs a HERE routing
-    # request and several Open-Meteo requests.
+    # request and many NWS requests.
     'DEFAULT_THROTTLE_RATES': {'anon': '120/min', 'plan': '20/min'},
     'EXCEPTION_HANDLER': 'weather_aware.api.exception_handler',
 }
@@ -161,6 +165,9 @@ REST_FRAMEWORK = {
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        # One long trip caches several hundred forecasts; the default of 300
+        # entries would throw them out while they are still being used.
+        'OPTIONS': {'MAX_ENTRIES': 5000},
     },
 }
 
@@ -168,6 +175,10 @@ CACHES = {
 # External services
 
 HERE_API_KEY = env('HERE_API_KEY', default='')
+
+# Forecasts come from the US National Weather Service, which needs no key
+# but asks every application to say who it is, with a way to contact it.
+NWS_USER_AGENT = env('NWS_USER_AGENT', default='weather-aware (github.com/VictorZ94/weather-aware-)')
 
 
 # Trip planning
@@ -187,8 +198,9 @@ TRUCK_PROFILE = {
 RISK_WIND_SOURCE = 'gusts'
 
 # Lets a plan request swap the real forecast for a made-up scenario, to see
-# extreme conditions on real routes. Never on outside development.
-ALLOW_WEATHER_SIMULATION = DEBUG
+# extreme conditions on real routes. Its own switch, so it can be on where
+# DEBUG must be off; when not set it follows DEBUG.
+ALLOW_WEATHER_SIMULATION = env.bool('ALLOW_WEATHER_SIMULATION', default=DEBUG)
 
 
 # Logging

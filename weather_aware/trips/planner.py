@@ -9,9 +9,10 @@ from rest_framework.exceptions import APIException
 from here.routing import RoutingClient
 
 from . import rules
+from .forecast import grid_cell
 from .geometry import METRES_PER_MILE, thin
 from .heatmap import build_heatmap, corridor_cells, start_hour
-from .open_meteo import OpenMeteoClient, grid_cell
+from .nws import NwsClient
 from .ranking import rank_routes
 from .risk import classify, route_totals
 from .sampling import build_profile, place_checkpoints, to_utc_iso
@@ -39,7 +40,7 @@ def plan_trip(request):
     # exactly 40,000 for a load entered as 40,000 lb, not 40,000.0001.
     cargo_lb = round(cargo_kg * LB_PER_KG)
     interval = request['checkpoint_interval_miles']
-    # Development only; the serializer rejects it unless simulation is allowed.
+    # The serializer rejects it unless ALLOW_WEATHER_SIMULATION is on.
     scenario = request.get('weather_scenario')
 
     # Step 1: routes.
@@ -66,7 +67,7 @@ def plan_trip(request):
             scenario, cells, hour0, forecast_end, profiles, (destination['lat'], destination['lon'])
         )
     else:
-        forecasts = OpenMeteoClient().forecasts(cells, hour0, forecast_end)
+        forecasts = NwsClient().forecasts(cells, hour0, forecast_end)
 
     routes = []
     notices = []

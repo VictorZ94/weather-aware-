@@ -8,7 +8,7 @@ from rest_framework.test import APITestCase
 from tenacity import wait_none
 
 from here.client import HereClient
-from trips.open_meteo import OpenMeteoClient
+from trips.nws import NwsClient
 from trips.simulated_weather import SCENARIOS
 
 from .test_endpoint import DEPARTURE, FAKE_KEY, HERE_ROUTE, URL, body
@@ -28,14 +28,14 @@ class WeatherSimulatorTests(APITestCase):
             self.here_requests.append(request)
             return httpx.Response(200, json=HERE_ROUTE)
 
-        def open_meteo(request):
+        def nws(request):
             self.weather_requests.append(request)
             return httpx.Response(500)
 
         patches = [
             mock.patch.object(HereClient, 'transport', httpx.MockTransport(here)),
             mock.patch.object(HereClient, 'wait', wait_none()),
-            mock.patch.object(OpenMeteoClient, 'transport', httpx.MockTransport(open_meteo)),
+            mock.patch.object(NwsClient, 'transport', httpx.MockTransport(nws)),
             mock.patch('django.utils.timezone.now', return_value=DEPARTURE - timedelta(hours=1)),
         ]
         for patch in patches:
@@ -53,7 +53,7 @@ class WeatherSimulatorTests(APITestCase):
     def levels(self, plan):
         return {checkpoint['risk_level'] for checkpoint in plan['routes'][0]['checkpoints']}
 
-    def test_simulated_plan_says_so_first_and_skips_open_meteo(self):
+    def test_simulated_plan_says_so_first_and_skips_the_weather_service(self):
         plan = self.plan('wind_38')
 
         self.assertEqual(plan['warnings'][0]['code'], 'simulated_weather')
@@ -63,7 +63,7 @@ class WeatherSimulatorTests(APITestCase):
         self.assertEqual(len(self.here_requests), 1)
 
     def test_real_forecast_has_no_simulation_warning(self):
-        with self.assertLogs('trips.open_meteo', level='WARNING'):
+        with self.assertLogs('trips.nws', level='WARNING'):
             plan = self.client.post(URL, body(), format='json').json()
 
         self.assertNotIn('simulated_weather', [w['code'] for w in plan['warnings']])
@@ -151,6 +151,6 @@ class WeatherSimulatorTests(APITestCase):
         response = self.client.post(URL, body(weather_scenario='wind_48'), format='json')
 
         self.assertEqual(response.status_code, 422)
-        self.assertIn('development', response.json()['field_errors']['weather_scenario'])
+        self.assertIn('turned off', response.json()['field_errors']['weather_scenario'])
         self.assertEqual(self.here_requests, [])
         self.assertEqual(self.client.get(SCENARIOS_URL).json(), {'scenarios': []})
