@@ -36,26 +36,20 @@ def plan_trip(request):
     destination = request['destination']
     departure = request['departure_time']
     cargo_kg = request['load_weight_kg']
-    # Whole pounds: the form converts lb to kg, and converting back must give
-    # exactly 40,000 for a load entered as 40,000 lb, not 40,000.0001.
     cargo_lb = round(cargo_kg * LB_PER_KG)
     interval = request['checkpoint_interval_miles']
-    # The serializer rejects it unless ALLOW_WEATHER_SIMULATION is on.
     scenario = request.get('weather_scenario')
 
-    # Step 1: routes.
     here_routes = RoutingClient(settings.HERE_API_KEY).truck_routes(
         (origin['lat'], origin['lon']), (destination['lat'], destination['lon']), departure, cargo_kg
     )
     if not here_routes:
         raise NoRouteFound()
 
-    # Step 2: checkpoints and ETAs.
     profiles = [build_profile(route) for route in here_routes]
     departure_utc = departure.astimezone(timezone.utc)
     checkpoints_by_route = [place_checkpoints(profile, departure, interval) for profile in profiles]
 
-    # Step 3: weather for the whole corridor, fetched once and shared with the heatmap.
     hour0 = start_hour(departure_utc)
     last_arrival = departure_utc + timedelta(seconds=max(route.duration_s for route in here_routes))
     cells = corridor_cells(profiles)
@@ -84,7 +78,7 @@ def plan_trip(request):
         routes.append(
             {
                 'id': route_id,
-                'name': None,  # set below, once all routes are known
+                'name': None, 
                 'geometry': {
                     'type': 'LineString',
                     'coordinates': [[round(lon, 5), round(lat, 5)] for lat, lon in line],
@@ -92,7 +86,7 @@ def plan_trip(request):
                 'distance_miles': round(here_route.length_m / METRES_PER_MILE, 1),
                 'duration_minutes': round(here_route.duration_s / 60),
                 'arrival_time': to_utc_iso(departure_utc + timedelta(seconds=here_route.duration_s)),
-                'rank': None,  # set by rank_routes
+                'rank': None, 
                 'average_risk': None if totals['average_risk'] is None else round(totals['average_risk'], 2),
                 'miles_by_level': {level: round(miles, 1) for level, miles in totals['miles_by_level'].items()},
                 'worst_segment': _round_segment(totals['worst_segment']),
@@ -104,15 +98,12 @@ def plan_trip(request):
 
     _name_routes(routes)
 
-    # Step 4: ranking and recommendation.
     recommended_id, reason, all_no_travel = rank_routes(routes)
 
-    # Step 5: heatmap, from the forecasts already fetched.
     heatmap = build_heatmap(cells, forecasts, hour0, cargo_lb)
 
     warnings = []
     if scenario:
-        # First, so a simulated result is never mistaken for a real forecast.
         warnings.append(
             {
                 'code': 'simulated_weather',
@@ -204,14 +195,11 @@ def _name_routes(routes):
     taken = set()
     for index, route in enumerate(routes):
         highways = route.pop('_highways')
-        # The biggest few, listed in the order they are driven. Short
-        # connecting roads (under a tenth of the route) are left out.
         by_size = sorted(highways, key=highways.get, reverse=True)
         total = sum(highways.values())
         biggest = [h for h in by_size if highways[h] >= total * MIN_NAME_SHARE][:MAX_NAME_HIGHWAYS] or by_size[:1]
         name = 'via ' + ', '.join(h for h in highways if h in biggest) if biggest else ''
         if not name or name in taken:
-            # Tell apart routes sharing the same main highways by one more road.
             extra = next((h for h in by_size if h not in biggest), None)
             name = f'{name}, {extra}' if name and extra else f'Route {"ABC"[index % 3]}'
         if name in taken:

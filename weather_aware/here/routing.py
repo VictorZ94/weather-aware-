@@ -13,7 +13,6 @@ from .client import HereClient
 ROUTES_URL = 'https://router.hereapi.com/v8/routes'
 KG_PER_LB = 0.45359237
 CM_PER_FT = 30.48
-# Short, because the answer depends on traffic at the time of asking.
 CACHE_SECONDS = 10 * 60
 
 
@@ -28,18 +27,16 @@ class Span:
 
 @dataclass
 class TruckRoute:
-    points: list  # [(lat, lon), ...] full-resolution line
+    points: list 
     length_m: float
     duration_s: float
     spans: list
-    # Metres driven on each numbered highway, in order of first appearance.
     highway_metres: dict = field(default_factory=dict)
     notices: list = field(default_factory=list)
 
 
 class RoutingClient(HereClient):
     service = 'Route planning'
-    # Long routes with alternatives take several seconds.
     timeout = 20.0
 
     def truck_routes(self, origin, destination, departure, cargo_kg):
@@ -53,12 +50,9 @@ class RoutingClient(HereClient):
             'transportMode': 'truck',
             'origin': f'{origin[0]},{origin[1]}',
             'destination': f'{destination[0]},{destination[1]}',
-            # With a departure time HERE applies live or typical traffic.
             'departureTime': departure.isoformat(timespec='seconds'),
             'alternatives': 2,
             'return': 'polyline,summary',
-            # dynamicSpeedInfo splits spans wherever speed changes, which gives
-            # an accurate time for every mile of the route.
             'spans': 'length,duration,routeNumbers,dynamicSpeedInfo',
             'lang': 'en-US',
             'vehicle[grossWeight]': gross_kg,
@@ -90,7 +84,6 @@ def _to_route(route):
 
     for section in route['sections']:
         section_points = [(lat, lon) for lat, lon, *_ in flexpolyline.decode(section['polyline'])]
-        # A section starts where the previous one ended; don't repeat that point.
         shift = len(points) - 1 if points else 0
         points.extend(section_points[1:] if points else section_points)
 

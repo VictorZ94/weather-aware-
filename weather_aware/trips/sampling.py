@@ -62,7 +62,6 @@ def build_profile(route):
         elapsed += span.duration_s
 
     if not spans:
-        # No span data: assume constant speed over the whole route.
         seconds = [route.duration_s * mile / total_miles if total_miles else 0.0 for mile in miles]
 
     return RouteProfile(points=route.points, miles=miles, seconds=seconds)
@@ -87,8 +86,6 @@ def place_checkpoints(profile, departure, interval_miles):
     checkpoints = []
     for seq, mile in enumerate(miles):
         lat, lon = profile.point_at(mile)
-        # Half the road back to the previous checkpoint plus half the road on
-        # to the next, so the checkpoints together cover the whole route.
         back = (mile - miles[seq - 1]) / 2 if seq > 0 else 0.0
         ahead = (miles[seq + 1] - mile) / 2 if seq + 1 < len(miles) else 0.0
         checkpoints.append(

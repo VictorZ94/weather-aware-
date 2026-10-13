@@ -54,12 +54,10 @@ class _ServerError(Exception):
 
 
 class HereClient:
-    # Used in error messages shown to the driver.
     service = 'The mapping service'
     timeout = 5.0
     attempts = 3
     wait = wait_exponential(multiplier=0.2, max=1)
-    # Tests swap in an httpx.MockTransport.
     transport = None
 
     def __init__(self, api_key):

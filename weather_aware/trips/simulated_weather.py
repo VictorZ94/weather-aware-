@@ -45,7 +45,7 @@ SCENARIOS = [
 ]
 SCENARIO_LABELS = {scenario['id']: scenario['label'] for scenario in SCENARIOS}
 
-CALM = (8.0, 0.0, 0.0)  # gust mph, rain in/hr, snow in/hr
+CALM = (8.0, 0.0, 0.0)
 STORM_HOURS = 48
 
 
@@ -108,14 +108,12 @@ def _wind_band(profiles, destination):
 
     centre_share, separation = 0.5, float('inf')
     if others:
-        # Put the band where it is least likely to also cover another route.
         shares = [share / 100 for share in range(15, 90, 5)]
         centre_share = max(shares, key=lambda share: _miles_to(fastest.point_at(fastest.total_miles * share), others))
         separation = _miles_to(fastest.point_at(fastest.total_miles * centre_share), others)
 
     half_length = min(0.1, 30 / fastest.total_miles) if fastest.total_miles else 0.1
     band = _stretch(fastest, max(0, centre_share - half_length), min(1, centre_share + half_length))
-    # Narrow enough to miss the other routes, and small next to a short route.
     core_miles = min(20.0, max(8.0, separation * 0.35), max(5.0, fastest.total_miles * 0.1))
 
     def weather_at(cell, hour):
