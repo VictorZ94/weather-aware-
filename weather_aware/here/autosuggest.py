@@ -3,16 +3,11 @@
 from .client import HereClient
 
 AUTOSUGGEST_URL = 'https://autosuggest.search.hereapi.com/v1/autosuggest'
-# Autosuggest needs a search centre. The middle of the USA favours no region.
 USA_CENTRE = '39.8283,-98.5795'
 MAX_SUGGESTIONS = 8
-# Street addresses, cities and postal codes; no businesses or category
-# suggestions. Filtered here because the live Autosuggest endpoint rejects
-# every value of its `resultTypes` parameter that we tried.
 ADDRESS_RESULT_TYPES = frozenset(
     {'houseNumber', 'street', 'intersection', 'addressBlock', 'locality', 'postalCodePoint'}
 )
-# Ask for more than we return, since non-address results are dropped.
 HERE_LIMIT = 20
 
 

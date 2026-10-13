@@ -33,7 +33,6 @@ def classify(weather, cargo_lb):
     if level == rules.LOW:
         deciding = 'No significant weather'
     else:
-        # On a tie, wind first: it is the condition the load rules act on.
         deciding = next(descriptions[name] for name in ('wind', 'snow', 'rain') if levels[name] == level)
 
     return {

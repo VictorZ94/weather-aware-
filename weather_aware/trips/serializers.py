@@ -9,7 +9,6 @@ from .simulated_weather import SCENARIO_LABELS
 MAX_DAYS_AHEAD = 7
 MAX_CARGO_KG = 50_000
 INTERVALS = (10, 25, 50)
-# A form filled in a moment ago should not fail for being seconds in the past.
 PAST_GRACE = timedelta(minutes=5)
 
 
@@ -34,7 +33,6 @@ class TripPlanRequestSerializer(serializers.Serializer):
         error_messages={'required': 'Choose a checkpoint interval.'}
     )
 
-    # Replaces the forecast with a made-up scenario, where the server allows it.
     weather_scenario = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def validate_weather_scenario(self, value):

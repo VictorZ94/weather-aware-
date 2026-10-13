@@ -63,7 +63,6 @@ def rank_routes(routes):
                 f"{round(others[0]['miles_by_level']['no_travel'])}). Consider a later departure."
             )
         return best['id'], reason, True
-    # Not enough weather data to call any route the safest.
     return None, None, all_no_travel
 
 
