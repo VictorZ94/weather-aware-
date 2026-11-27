@@ -112,7 +112,7 @@ export const tripPlanSchema = z.object({
   origin: placeSchema,
   destination: placeSchema,
   departure_time: z.string(),
-  checkpoint_interval_miles: z.number(),
+  checkpoint_gaps_miles: z.array(z.number()),
   recommended_route_id: z.string().nullable(),
   recommendation_reason: z.string().nullable(),
   warnings: z.array(warningSchema),
@@ -121,15 +121,11 @@ export const tripPlanSchema = z.object({
 });
 export type TripPlan = z.infer<typeof tripPlanSchema>;
 
-export const CHECKPOINT_INTERVALS = [10, 25, 50] as const;
-export type CheckpointInterval = (typeof CHECKPOINT_INTERVALS)[number];
-
 export type TripPlanRequest = {
   origin: Place;
   destination: Place;
   departure_time: string;
   load_weight_kg: number;
-  checkpoint_interval_miles: CheckpointInterval;
   weather_scenario?: string;
 };
 

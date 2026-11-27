@@ -2,7 +2,7 @@
 import { z } from "zod";
 
 // @scripts
-import { CHECKPOINT_INTERVALS, placeSchema } from "../../api/schemas";
+import { placeSchema } from "../../api/schemas";
 import { dayjs, wallClockInZone, type Dayjs } from "../../utils/dayjs";
 
 export const MAX_DAYS_AHEAD = 7;
@@ -39,7 +39,6 @@ export const tripSchema = z
         (text) => !(Number(text) <= 0),
         "Cargo weight must be greater than 0",
       ),
-    interval: z.union(CHECKPOINT_INTERVALS.map((miles) => z.literal(miles))),
     weatherScenario: z.string(),
   })
   .superRefine((values, context) => {

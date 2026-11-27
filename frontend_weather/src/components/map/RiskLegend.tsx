@@ -29,11 +29,7 @@ function Swatch({
   );
 }
 
-export function RiskLegend({
-  intervalMiles,
-}: {
-  intervalMiles: number | null;
-}) {
+export function RiskLegend({ gapsMiles }: { gapsMiles: number[] | null }) {
   return (
     <Paper
       elevation={2}
@@ -70,12 +66,12 @@ export function RiskLegend({
           <Typography variant="caption">No data</Typography>
         </Stack>
       </Stack>
-      {intervalMiles !== null && (
+      {gapsMiles !== null && gapsMiles.length > 0 && (
         <Typography
           variant="caption"
           sx={{ display: "block", mt: 0.75, color: "text.secondary" }}
         >
-          Weather sampled every {intervalMiles} mi
+          Weather sampled every {gapsMiles.join(", ")} mi in turn
         </Typography>
       )}
     </Paper>

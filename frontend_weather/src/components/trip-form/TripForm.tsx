@@ -2,14 +2,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import RouteIcon from "@mui/icons-material/AltRoute";
 import Button from "@mui/material/Button";
-import FormControl from "@mui/material/FormControl";
-import FormHelperText from "@mui/material/FormHelperText";
-import FormLabel from "@mui/material/FormLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
-import ToggleButton from "@mui/material/ToggleButton";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { useEffect } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
@@ -19,7 +14,7 @@ import { PlaceAutocomplete } from "./PlaceAutocomplete";
 import { WeightField } from "./WeightField";
 
 // @scripts
-import { CHECKPOINT_INTERVALS, type TripPlanRequest } from "../../api/schemas";
+import type { TripPlanRequest } from "../../api/schemas";
 import { useUnits } from "../../context/UnitsContext";
 import { useWeatherScenarios } from "../../hooks/useWeatherScenarios";
 import { dayjs, wallClockInZone } from "../../utils/dayjs";
@@ -36,7 +31,6 @@ const SERVER_FIELDS: Record<string, keyof TripFormValues> = {
   destination: "destination",
   departure_time: "departure",
   load_weight_kg: "weight",
-  checkpoint_interval_miles: "interval",
   weather_scenario: "weatherScenario",
 };
 
@@ -61,7 +55,6 @@ export function TripForm({ onSubmit, isLoading, serverFieldErrors }: Props) {
       destination: null,
       departure: dayjs().add(1, "hour").startOf("hour"),
       weight: "",
-      interval: 25,
       weatherScenario: "",
     },
   });
@@ -96,7 +89,6 @@ export function TripForm({ onSubmit, isLoading, serverFieldErrors }: Props) {
       departure_time: wallClockInZone(departure, origin.timezone).format(),
       load_weight_kg:
         Math.round(toKg(Number(values.weight), weightUnit) * 100) / 100,
-      checkpoint_interval_miles: values.interval,
       ...(values.weatherScenario
         ? { weather_scenario: values.weatherScenario }
         : {}),
@@ -180,36 +172,6 @@ export function TripForm({ onSubmit, isLoading, serverFieldErrors }: Props) {
             onUnitChange={changeWeightUnit}
             error={fieldState.error?.message}
           />
-        )}
-      />
-
-      <Controller
-        name="interval"
-        control={control}
-        render={({ field, fieldState }) => (
-          <FormControl error={Boolean(fieldState.error)}>
-            <FormLabel id="interval-label" sx={{ fontSize: "0.8rem", mb: 0.5 }}>
-              Check weather every
-            </FormLabel>
-            <ToggleButtonGroup
-              exclusive
-              fullWidth
-              size="small"
-              color="primary"
-              aria-labelledby="interval-label"
-              value={field.value}
-              onChange={(_, miles) => miles !== null && field.onChange(miles)}
-            >
-              {CHECKPOINT_INTERVALS.map((miles) => (
-                <ToggleButton key={miles} value={miles}>
-                  {miles} mi
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-            {fieldState.error && (
-              <FormHelperText>{fieldState.error.message}</FormHelperText>
-            )}
-          </FormControl>
         )}
       />
 
