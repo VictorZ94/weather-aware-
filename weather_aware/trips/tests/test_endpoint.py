@@ -1,5 +1,4 @@
 import json
-import math
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
@@ -12,6 +11,7 @@ from tenacity import wait_none
 
 from here.client import HereClient
 from trips.nws import NwsClient
+from trips.sampling import checkpoint_miles
 
 from .test_weather import START, nws_handler
 
@@ -34,7 +34,6 @@ def body(**changes):
         'destination': CHEYENNE,
         'departure_time': DEPARTURE.isoformat(),
         'load_weight_kg': 9000,
-        'checkpoint_interval_miles': 25,
     }
     request.update(changes)
     return request
@@ -82,11 +81,11 @@ class PlanTripTests(APITestCase):
         plan = response.json()
         self.assertEqual(
             set(plan),
-            {'origin', 'destination', 'departure_time', 'checkpoint_interval_miles', 'recommended_route_id',
+            {'origin', 'destination', 'departure_time', 'checkpoint_gaps_miles', 'recommended_route_id',
              'recommendation_reason', 'warnings', 'routes', 'heatmap'},
         )  # fmt: skip
         self.assertEqual(plan['origin'], DENVER)
-        self.assertEqual(plan['checkpoint_interval_miles'], 25)
+        self.assertEqual(plan['checkpoint_gaps_miles'], [10, 25, 50])
 
         route = plan['routes'][0]
         self.assertEqual(
@@ -122,21 +121,19 @@ class PlanTripTests(APITestCase):
         self.assertAlmostEqual(coordinates[-1][0], CHEYENNE['lon'], delta=0.02)
         self.assertAlmostEqual(coordinates[-1][1], CHEYENNE['lat'], delta=0.02)
 
-    def test_checkpoints_follow_the_interval_and_end_at_the_arrival(self):
-        for interval in (10, 25, 50):
-            cache.clear()
-            route = self.plan(checkpoint_interval_miles=interval).json()['routes'][0]
-            checkpoints = route['checkpoints']
+    def test_checkpoints_follow_the_gaps_and_end_at_the_arrival(self):
+        route = self.plan().json()['routes'][0]
+        checkpoints = route['checkpoints']
 
-            self.assertEqual(len(checkpoints), math.ceil(route['distance_miles'] / interval) + 1)
-            self.assertEqual(checkpoints[0]['mile'], 0)
-            self.assertEqual(checkpoints[-1]['mile'], route['distance_miles'])
-            etas = [c['eta'] for c in checkpoints]
-            self.assertEqual(etas, sorted(set(etas)))
-            self.assertTrue(all(eta.endswith('Z') for eta in etas))
-            self.assertEqual(etas[-1], route['arrival_time'])
-            self.assertAlmostEqual(sum(c['miles_represented'] for c in checkpoints), route['distance_miles'], delta=0.1)
-            self.assertAlmostEqual(sum(route['miles_by_level'].values()), route['distance_miles'], delta=0.5)
+        self.assertEqual([c['mile'] for c in checkpoints[:-1]], checkpoint_miles(route['distance_miles'])[:-1])
+        self.assertEqual(checkpoints[0]['mile'], 0)
+        self.assertEqual(checkpoints[-1]['mile'], route['distance_miles'])
+        etas = [c['eta'] for c in checkpoints]
+        self.assertEqual(etas, sorted(set(etas)))
+        self.assertTrue(all(eta.endswith('Z') for eta in etas))
+        self.assertEqual(etas[-1], route['arrival_time'])
+        self.assertAlmostEqual(sum(c['miles_represented'] for c in checkpoints), route['distance_miles'], delta=0.1)
+        self.assertAlmostEqual(sum(route['miles_by_level'].values()), route['distance_miles'], delta=0.5)
 
     def test_arrival_is_departure_plus_the_drive(self):
         plan = self.plan().json()
@@ -260,11 +257,10 @@ class PlanTripTests(APITestCase):
         far = (DEPARTURE + timedelta(days=8)).isoformat()
         self.assertIn('7 days', self.plan(departure_time=far).json()['field_errors']['departure_time'])
 
-    def test_invalid_weight_and_interval(self):
+    def test_invalid_weight(self):
         self.assert_field_error(self.plan(load_weight_kg=0), 'load_weight_kg')
         self.assert_field_error(self.plan(load_weight_kg=-5), 'load_weight_kg')
         self.assert_field_error(self.plan(load_weight_kg=60000), 'load_weight_kg')
-        self.assert_field_error(self.plan(checkpoint_interval_miles=30), 'checkpoint_interval_miles')
 
     # --- failures ---
 

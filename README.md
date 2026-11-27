@@ -1,6 +1,6 @@
 # Weather-aware truck routing
 
-Plans a truck trip and shows up to 3 routes with the weather risk along each, so a driver can pick the safest one. For every route it samples the forecast every 10, 25 or 50 miles at the time the truck will be there, rates each checkpoint with the risk and load rules, recommends a route, and draws a risk heatmap for the next 48 hours.
+Plans a truck trip and shows up to 3 routes with the weather risk along each, so a driver can pick the safest one. For every route it samples the forecast at checkpoints Django places along the route, with gaps of 10, 25 and 50 miles in turn, at the time the truck will be there, rates each checkpoint with the risk and load rules, recommends a route, and draws a risk heatmap for the next 48 hours.
 
 - `frontend_weather/` — React, MUI and MapLibre. Draws what Django sends; holds no API keys and applies no risk rules.
 - `weather_aware/` — Django REST Framework. Gets truck routes from HERE and forecasts from the US National Weather Service, applies the rules, ranks the routes.

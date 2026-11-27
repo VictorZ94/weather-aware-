@@ -33,6 +33,7 @@ type Cell = {
 const EARTH_RADIUS_MILES = 3958.8
 const FORECAST_HOURS = 48
 const LB_PER_KG = 2.20462262
+const CHECKPOINT_GAPS_MILES = [10, 25, 50]
 
 const round = (value: number, digits = 1) => {
   const factor = 10 ** digits
@@ -209,12 +210,13 @@ function buildRoute(
   const line = buildLine(origin, destination, bulge, 3 + index)
   const miles = cumulativeMiles(line)
   const distance = miles[miles.length - 1]
-  const interval = request.checkpoint_interval_miles
   const departure = dayjs(request.departure_time)
   const id = `route-${'abc'[index]}`
 
   const checkpointMiles: number[] = []
-  for (let mile = 0; mile < distance - 1e-6; mile += interval) checkpointMiles.push(mile)
+  for (let mile = 0, i = 0; mile < distance - 1e-6; mile += CHECKPOINT_GAPS_MILES[i++ % CHECKPOINT_GAPS_MILES.length]) {
+    checkpointMiles.push(mile)
+  }
   checkpointMiles.push(distance)
 
   const checkpoints: Checkpoint[] = checkpointMiles.map((mile, seq) => {
@@ -486,7 +488,7 @@ export function generateTrip(request: TripPlanRequest): TripPlan {
     origin: request.origin,
     destination: request.destination,
     departure_time: request.departure_time,
-    checkpoint_interval_miles: request.checkpoint_interval_miles,
+    checkpoint_gaps_miles: CHECKPOINT_GAPS_MILES,
     recommended_route_id: recommendation.id,
     recommendation_reason: recommendation.reason,
     warnings,

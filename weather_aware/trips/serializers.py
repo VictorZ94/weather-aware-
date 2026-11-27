@@ -8,7 +8,6 @@ from .simulated_weather import SCENARIO_LABELS
 
 MAX_DAYS_AHEAD = 7
 MAX_CARGO_KG = 50_000
-INTERVALS = (10, 25, 50)
 PAST_GRACE = timedelta(minutes=5)
 
 
@@ -29,10 +28,6 @@ class TripPlanRequestSerializer(serializers.Serializer):
     )
     departure_time = serializers.CharField(error_messages={'required': 'Enter a departure date and time.'})
     load_weight_kg = serializers.FloatField(error_messages={'required': 'Enter the cargo weight.'})
-    checkpoint_interval_miles = serializers.IntegerField(
-        error_messages={'required': 'Choose a checkpoint interval.'}
-    )
-
     weather_scenario = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def validate_weather_scenario(self, value):
@@ -65,11 +60,6 @@ class TripPlanRequestSerializer(serializers.Serializer):
             raise serializers.ValidationError('Cargo weight must be greater than 0.')
         if value > MAX_CARGO_KG:
             raise serializers.ValidationError('Cargo weight is more than a truck can carry.')
-        return value
-
-    def validate_checkpoint_interval_miles(self, value):
-        if value not in INTERVALS:
-            raise serializers.ValidationError('Checkpoint interval must be 10, 25 or 50 miles.')
         return value
 
     def validate(self, data):
