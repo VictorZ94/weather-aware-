@@ -93,7 +93,6 @@ export const WARNING_CODES = [
   "fewer_routes",
   "missing_weather",
   "route_notice",
-  "simulated_weather",
 ] as const;
 export const warningSchema = z.object({
   code: z.enum(WARNING_CODES),
@@ -126,17 +125,7 @@ export type TripPlanRequest = {
   destination: Place;
   departure_time: string;
   load_weight_kg: number;
-  weather_scenario?: string;
 };
-
-export const weatherScenariosSchema = z.object({
-  scenarios: z.array(
-    z.object({ id: z.string(), label: z.string(), description: z.string() }),
-  ),
-});
-export type WeatherScenario = z.infer<
-  typeof weatherScenariosSchema
->["scenarios"][number];
 
 export const apiErrorSchema = z.object({
   detail: z.string(),

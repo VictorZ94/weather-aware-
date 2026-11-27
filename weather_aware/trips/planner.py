@@ -16,7 +16,6 @@ from .nws import NwsClient
 from .ranking import rank_routes
 from .risk import classify, route_totals
 from .sampling import CHECKPOINT_GAPS_MILES, build_profile, place_checkpoints, to_utc_iso
-from .simulated_weather import SCENARIO_LABELS, simulated_forecasts
 
 LB_PER_KG = 2.20462262
 FORECAST_HOURS = 48
@@ -37,7 +36,6 @@ def plan_trip(request):
     departure = request['departure_time']
     cargo_kg = request['load_weight_kg']
     cargo_lb = round(cargo_kg * LB_PER_KG)
-    scenario = request.get('weather_scenario')
 
     here_routes = RoutingClient(settings.HERE_API_KEY).truck_routes(
         (origin['lat'], origin['lon']), (destination['lat'], destination['lon']), departure, cargo_kg
@@ -55,12 +53,7 @@ def plan_trip(request):
     for checkpoints in checkpoints_by_route:
         cells.update(grid_cell(checkpoint['lat'], checkpoint['lon']) for checkpoint in checkpoints)
     forecast_end = max(hour0 + timedelta(hours=FORECAST_HOURS), last_arrival) + timedelta(hours=1)
-    if scenario:
-        forecasts = simulated_forecasts(
-            scenario, cells, hour0, forecast_end, profiles, (destination['lat'], destination['lon'])
-        )
-    else:
-        forecasts = NwsClient().forecasts(cells, hour0, forecast_end)
+    forecasts = NwsClient().forecasts(cells, hour0, forecast_end)
 
     routes = []
     notices = []
@@ -102,13 +95,6 @@ def plan_trip(request):
     heatmap = build_heatmap(cells, forecasts, hour0, cargo_lb)
 
     warnings = []
-    if scenario:
-        warnings.append(
-            {
-                'code': 'simulated_weather',
-                'message': f'Simulated weather: {SCENARIO_LABELS[scenario]}. Not a real forecast.',
-            }
-        )
     if all_no_travel:
         warnings.append(
             {

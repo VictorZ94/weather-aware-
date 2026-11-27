@@ -39,7 +39,6 @@ export const tripSchema = z
         (text) => !(Number(text) <= 0),
         "Cargo weight must be greater than 0",
       ),
-    weatherScenario: z.string(),
   })
   .superRefine((values, context) => {
     const { origin, destination, departure } = values;

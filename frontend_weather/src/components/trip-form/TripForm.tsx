@@ -2,9 +2,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import RouteIcon from "@mui/icons-material/AltRoute";
 import Button from "@mui/material/Button";
-import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { useEffect } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
@@ -16,7 +14,6 @@ import { WeightField } from "./WeightField";
 // @scripts
 import type { TripPlanRequest } from "../../api/schemas";
 import { useUnits } from "../../context/UnitsContext";
-import { useWeatherScenarios } from "../../hooks/useWeatherScenarios";
 import { dayjs, wallClockInZone } from "../../utils/dayjs";
 import { fromKg, toKg, type WeightUnit } from "../../utils/units";
 import {
@@ -31,7 +28,6 @@ const SERVER_FIELDS: Record<string, keyof TripFormValues> = {
   destination: "destination",
   departure_time: "departure",
   load_weight_kg: "weight",
-  weather_scenario: "weatherScenario",
 };
 
 type Props = {
@@ -42,7 +38,6 @@ type Props = {
 
 export function TripForm({ onSubmit, isLoading, serverFieldErrors }: Props) {
   const { weightUnit, setWeightUnit } = useUnits();
-  const weatherScenarios = useWeatherScenarios();
 
   const { control, handleSubmit, setError, setValue, getValues } = useForm<
     TripFormValues,
@@ -55,7 +50,6 @@ export function TripForm({ onSubmit, isLoading, serverFieldErrors }: Props) {
       destination: null,
       departure: dayjs().add(1, "hour").startOf("hour"),
       weight: "",
-      weatherScenario: "",
     },
   });
 
@@ -89,9 +83,6 @@ export function TripForm({ onSubmit, isLoading, serverFieldErrors }: Props) {
       departure_time: wallClockInZone(departure, origin.timezone).format(),
       load_weight_kg:
         Math.round(toKg(Number(values.weight), weightUnit) * 100) / 100,
-      ...(values.weatherScenario
-        ? { weather_scenario: values.weatherScenario }
-        : {}),
     });
   });
 
@@ -174,43 +165,6 @@ export function TripForm({ onSubmit, isLoading, serverFieldErrors }: Props) {
           />
         )}
       />
-
-      {weatherScenarios.length > 0 && (
-        <Controller
-          name="weatherScenario"
-          control={control}
-          render={({ field, fieldState }) => (
-            <TextField
-              select
-              label="Simulate weather (test)"
-              value={field.value}
-              onChange={field.onChange}
-              onBlur={field.onBlur}
-              inputRef={field.ref}
-              size="small"
-              fullWidth
-              error={Boolean(fieldState.error)}
-              helperText={
-                fieldState.error?.message ??
-                weatherScenarios.find((scenario) => scenario.id === field.value)
-                  ?.description ??
-                "Uses the real NWS forecast"
-              }
-              slotProps={{
-                select: { displayEmpty: true },
-                inputLabel: { shrink: true },
-              }}
-            >
-              <MenuItem value="">Real forecast</MenuItem>
-              {weatherScenarios.map((scenario) => (
-                <MenuItem key={scenario.id} value={scenario.id}>
-                  {scenario.label}
-                </MenuItem>
-              ))}
-            </TextField>
-          )}
-        />
-      )}
 
       <Button
         type="submit"
