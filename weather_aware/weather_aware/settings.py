@@ -197,11 +197,6 @@ TRUCK_PROFILE = {
 # Which wind reading the risk rules use: 'gusts' or 'sustained'.
 RISK_WIND_SOURCE = 'gusts'
 
-# Lets a plan request swap the real forecast for a made-up scenario, to see
-# extreme conditions on real routes. Its own switch, so it can be on where
-# DEBUG must be off; when not set it follows DEBUG.
-ALLOW_WEATHER_SIMULATION = env.bool('ALLOW_WEATHER_SIMULATION', default=DEBUG)
-
 
 # Logging
 

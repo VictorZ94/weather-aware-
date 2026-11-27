@@ -7,7 +7,6 @@ import type { TripWarning } from "../../api/schemas";
 
 const SEVERITY: Partial<Record<TripWarning["code"], "error" | "info">> = {
   no_travel_all_routes: "error",
-  simulated_weather: "info",
 };
 
 export function WarningBanner({ warnings }: { warnings: TripWarning[] }) {

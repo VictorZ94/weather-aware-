@@ -2,10 +2,13 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from itertools import cycle
 
 from timezonefinder import TimezoneFinder
 
 from .geometry import METRES_PER_MILE, cumulative_miles, interpolate, point_at_mile
+
+CHECKPOINT_GAPS_MILES = (10, 25, 50)
 
 _timezone_finder = None
 
@@ -67,20 +70,21 @@ def build_profile(route):
     return RouteProfile(points=route.points, miles=miles, seconds=seconds)
 
 
-def checkpoint_miles(total_miles, interval_miles):
-    """Mile 0, every interval, and always the destination."""
+def checkpoint_miles(total_miles):
+    """Mile 0, then gaps of 10, 25 and 50 miles in turn, and always the destination."""
     miles = []
     mile = 0.0
+    gaps = cycle(CHECKPOINT_GAPS_MILES)
     while mile < total_miles - 1e-6:
         miles.append(mile)
-        mile += interval_miles
+        mile += next(gaps)
     miles.append(total_miles)
     return miles
 
 
-def place_checkpoints(profile, departure, interval_miles):
+def place_checkpoints(profile, departure):
     """Checkpoints with position, ETA (UTC), time zone and the miles each stands for."""
-    miles = checkpoint_miles(profile.total_miles, interval_miles)
+    miles = checkpoint_miles(profile.total_miles)
     departure_utc = departure.astimezone(timezone.utc)
 
     checkpoints = []

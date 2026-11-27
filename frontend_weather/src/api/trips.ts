@@ -2,10 +2,8 @@
 import { apiRequest } from "./client";
 import {
   tripPlanSchema,
-  weatherScenariosSchema,
   type TripPlan,
   type TripPlanRequest,
-  type WeatherScenario,
 } from "./schemas";
 
 export function planTrip(
@@ -17,15 +15,4 @@ export function planTrip(
     data: request,
     signal,
   });
-}
-
-export async function listWeatherScenarios(
-  signal?: AbortSignal,
-): Promise<WeatherScenario[]> {
-  const data = await apiRequest(
-    "/trips/weather-scenarios/",
-    weatherScenariosSchema,
-    { signal },
-  );
-  return data.scenarios;
 }

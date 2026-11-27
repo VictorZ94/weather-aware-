@@ -4,26 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A weather-aware routing app for truck drivers: given origin, destination, departure time, cargo weight and a checkpoint interval, it shows up to 3 routes with weather risk along each and recommends the safest.
+A weather-aware routing app for truck drivers: given origin, destination, departure time and cargo weight, it shows up to 3 routes with weather risk along each and recommends the safest.
 
-- `frontend_weather/` — React frontend. Built and working against a fake backend.
+- `frontend_weather/` — React frontend; it talks only to Django.
 - `weather_aware/` — Django 6.1 + Django REST Framework backend: place suggestions (`places` app) and trip planning (`trips` app), with shared HERE plumbing in the `here/` package.
 - `venv/` — Python virtualenv for the backend; packages are pinned in `weather_aware/requirements.txt`.
 - `docs/` — the approved plans (`frontend-plan.md`, `backend-places-plan.md`, `backend-trip-plan.md`), including the API contract and the decisions behind it. Save each new approved plan here.
-
-The directory is not a git repository.
 
 ## Commands
 
 Frontend (run from `frontend_weather/`):
 
 ```
-npm run dev       # Vite dev server; MSW answers /api/* (see below)
+npm run dev       # Vite dev server; /api/* is proxied to Django on port 8000, which must be running
 npm run build     # tsc -b && vite build — this is the type-check
 npm run lint      # eslint
 ```
 
-There are no tests yet (a deliberate choice for this stage).
+The frontend has no tests yet; the build is its type-check.
 
 Backend (run from `weather_aware/`, Windows venv):
 
@@ -40,18 +38,16 @@ Settings read `weather_aware/.env` (template: `.env.example`); `SECRET_KEY` is r
 
 React never calls HERE or a weather service, holds no API keys, and applies no risk rules. It maps a risk level to a colour and label and nothing more; per-checkpoint `levels`, `average_risk`, `miles_by_level`, `rank`, `deciding_condition`, `load_rule`, `warnings`, the recommendation and the heatmap levels all arrive computed from Django.
 
-React makes exactly two kinds of request (plus `GET /api/trips/weather-scenarios/` for the simulator below):
+React makes exactly two kinds of request:
 
 - `GET /api/places/suggest/?q=` — autocomplete suggestions.
 - `POST /api/trips/plan/` — everything for a trip in one response: ranked routes, checkpoints with ETA, weather and risk, warnings, and the risk heatmap for hours 0–48.
 
 ## Frontend architecture
 
-Stack: Vite 8, React 19 with the React Compiler, TypeScript 6, MUI 9 (+ MUI X date pickers), react-hook-form + zod 4, TanStack Query 5, Axios 1 (only inside `api/client.ts`), MapLibre GL 6 through `react-map-gl/maplibre`, Day.js, MSW 3. Several of these are recent majors with changed APIs; check current docs before writing against them.
+Stack: Vite 8, React 19 with the React Compiler, TypeScript 6, MUI 9 (+ MUI X date pickers), react-hook-form + zod 4, TanStack Query 5, Axios 1 (only inside `api/client.ts`), MapLibre GL 6 through `react-map-gl/maplibre`, Day.js. Several of these are recent majors with changed APIs; check current docs before writing against them.
 
 **The contract lives in `src/api/schemas.ts`.** zod schemas define every response, TypeScript types are inferred from them, and `api/client.ts` parses each response before it reaches a component. When the Django API is built it must match these schemas; change the schema first when the contract changes. The API takes cargo in kg and sends wind in mph and rain and snow in inches per hour (the units of the risk rules). Times are ISO 8601; ETAs come in UTC with the checkpoint's IANA `timezone` beside them.
-
-**Fake backend.** `src/mocks/` is a stand-in for Django using Mock Service Worker, enabled by `VITE_USE_MOCKS=true` in `.env.development`. `generateTrip.ts` invents routes and weather and imitates the rules roughly; the real rules are Django's, so app code must never import from `src/mocks/` (only `main.tsx` starts the worker). `VITE_MOCK_PLACES=false` and `VITE_MOCK_TRIPS=false` send those requests to Django instead, through the `/api` proxy in `vite.config.ts`. When the contract changes, the mock generator must change with it. Mock destinations in `mocks/places.ts` trigger special cases: Errorville (500), Blizzard Pass (No Travel on all routes), Two Roads (2 routes), Deadzone (missing weather). `?mockDelay=10000` in the page URL slows the plan request.
 
 **State flow.** `hooks/usePlanTrip.ts` holds the submitted request and runs it as a `useQuery` (not a mutation), keyed on the request, and keeps the last successful plan so it stays on screen while a new one loads or fails. `App.tsx` owns `selectedRouteId` and `hour` and passes them to the panel and the map; both the route cards and the map lines set `selectedRouteId`. State is reset from new data with the set-state-during-render pattern rather than effects (the hooks lint rule rejects set-state in effects).
 
@@ -67,9 +63,7 @@ Stack: Vite 8, React 19 with the React Compiler, TypeScript 6, MUI 9 (+ MUI X da
 
 The `here/` package is the only code that knows HERE's URLs, parameters and response formats: `client.py` (httpx + tenacity: 3 attempts on timeouts, connection errors and 5xx, none on 4xx; `HereError` subclasses that DRF renders as `{"detail", "retryable"}`), `autosuggest.py` and `routing.py`. Views stay thin.
 
-Trip planning is a pipeline in `trips/planner.py`, one module per step: `here/routing.py` (truck routes) → `sampling.py` (distance/time profile from HERE spans, checkpoints, ETAs, miles represented) → `nws.py` (forecasts per 0.1° grid cell, cached 1 h, returned as the `Forecast` class of `forecast.py`) → `rules.py` + `risk.py` (levels) → `ranking.py` (order and recommendation) → `heatmap.py`. `rules.py` is the only place the thresholds and load rules are written, has no I/O, and `nws.py` has no rules; keep that separation. NWS has no multi-location request (a `/points` lookup, then the grid forecast, per location), so `nws.py` fetches one forecast per 0.25° and shares it among the 0.1° cells inside; it gives wind hourly but rain and snow as multi-hour totals, which are spread evenly. (Open-Meteo was used first and dropped: its free limit is per IP, and Render's shared address exhausts it.) Forecasts are fetched once for the whole corridor and shared by checkpoints and heatmap. The README lists the assumptions made where the rules were silent.
-
-**Weather simulator.** `trips/simulated_weather.py` replaces the NWS forecast with a named scenario when the plan request carries `weather_scenario`, so extreme conditions can be seen on real routes; the rules, ranking and heatmap run on it unchanged. It is gated by the `ALLOW_WEATHER_SIMULATION` environment variable, which follows `DEBUG` when not set and can be turned on in production on its own: otherwise the request is rejected and the scenario list is empty, which hides the selector in the form. Every simulated plan carries a `simulated_weather` warning. Scenarios describe weather only; no rules belong there.
+Trip planning is a pipeline in `trips/planner.py`, one module per step: `here/routing.py` (truck routes) → `sampling.py` (distance/time profile from HERE spans; checkpoints at gaps of 10, 25, 50 mi in turn, set by `CHECKPOINT_GAPS_MILES`; ETAs; miles represented) → `nws.py` (forecasts per 0.1° grid cell, cached 1 h, returned as the `Forecast` class of `forecast.py`) → `rules.py` + `risk.py` (levels) → `ranking.py` (order and recommendation) → `heatmap.py`. `rules.py` is the only place the thresholds and load rules are written, has no I/O, and `nws.py` has no rules; keep that separation. NWS has no multi-location request (a `/points` lookup, then the grid forecast, per location), so `nws.py` fetches one forecast per 0.25° and shares it among the 0.1° cells inside; it gives wind hourly but rain and snow as multi-hour totals, which are spread evenly. (Open-Meteo was used first and dropped: its free limit is per IP, and Render's shared address exhausts it.) Forecasts are fetched once for the whole corridor and shared by checkpoints and heatmap. The README lists the assumptions made where the rules were silent.
 
 Place suggestions use HERE Autosuggest with `show=tz`, so coordinates and the IANA time zone come back in one call. Results are cached in memory for 24 h and the endpoint is throttled per IP. Do not send Autosuggest's `resultTypes` parameter: the live endpoint rejected every value tried, so businesses and category suggestions are filtered out in `_to_suggestion` by each item's `resultType` instead.
 

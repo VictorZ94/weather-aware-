@@ -93,7 +93,6 @@ export const WARNING_CODES = [
   "fewer_routes",
   "missing_weather",
   "route_notice",
-  "simulated_weather",
 ] as const;
 export const warningSchema = z.object({
   code: z.enum(WARNING_CODES),
@@ -112,7 +111,7 @@ export const tripPlanSchema = z.object({
   origin: placeSchema,
   destination: placeSchema,
   departure_time: z.string(),
-  checkpoint_interval_miles: z.number(),
+  checkpoint_gaps_miles: z.array(z.number()),
   recommended_route_id: z.string().nullable(),
   recommendation_reason: z.string().nullable(),
   warnings: z.array(warningSchema),
@@ -121,26 +120,12 @@ export const tripPlanSchema = z.object({
 });
 export type TripPlan = z.infer<typeof tripPlanSchema>;
 
-export const CHECKPOINT_INTERVALS = [10, 25, 50] as const;
-export type CheckpointInterval = (typeof CHECKPOINT_INTERVALS)[number];
-
 export type TripPlanRequest = {
   origin: Place;
   destination: Place;
   departure_time: string;
   load_weight_kg: number;
-  checkpoint_interval_miles: CheckpointInterval;
-  weather_scenario?: string;
 };
-
-export const weatherScenariosSchema = z.object({
-  scenarios: z.array(
-    z.object({ id: z.string(), label: z.string(), description: z.string() }),
-  ),
-});
-export type WeatherScenario = z.infer<
-  typeof weatherScenariosSchema
->["scenarios"][number];
 
 export const apiErrorSchema = z.object({
   detail: z.string(),

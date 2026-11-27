@@ -1,6 +1,6 @@
 # Weather-aware truck routing
 
-Plans a truck trip and shows up to 3 routes with the weather risk along each, so a driver can pick the safest one. For every route it samples the forecast every 10, 25 or 50 miles at the time the truck will be there, rates each checkpoint with the risk and load rules, recommends a route, and draws a risk heatmap for the next 48 hours.
+Plans a truck trip and shows up to 3 routes with the weather risk along each, so a driver can pick the safest one. For every route it samples the forecast at checkpoints Django places along the route, with gaps of 10, 25 and 50 miles in turn, at the time the truck will be there, rates each checkpoint with the risk and load rules, recommends a route, and draws a risk heatmap for the next 48 hours.
 
 - `frontend_weather/` — React, MUI and MapLibre. Draws what Django sends; holds no API keys and applies no risk rules.
 - `weather_aware/` — Django REST Framework. Gets truck routes from HERE and forecasts from the US National Weather Service, applies the rules, ranks the routes.
@@ -26,18 +26,9 @@ npm install
 npm run dev
 ```
 
-By default the frontend answers its own requests with a built-in mock, so it runs without the backend. To use Django, set both flags to `false` in `frontend_weather/.env.development`:
-
-```
-VITE_MOCK_PLACES=false
-VITE_MOCK_TRIPS=false
-```
+The dev server sends `/api/*` to Django on port 8000, so start the backend first.
 
 Tests: `..\venv\Scripts\python manage.py test` in `weather_aware/` (no key or network needed). Frontend checks: `npm run lint` and `npm run build`.
-
-## Seeing extreme weather
-
-Real forecasts are usually calm. When Django has `ALLOW_WEATHER_SIMULATION=True`, the form shows a "Simulate weather (test)" selector: the routes still come from HERE, but the forecast is replaced by a scenario (38 or 48 mph wind everywhere, a No Travel wind band on the fastest route, a blizzard at the destination, heavy rain, a storm moving through, or no forecast at all) and the real rules run on it. Simulated plans are marked with a banner. With the switch off the selector disappears and Django refuses the option. When the variable is not set it follows `DEBUG`, so it is on in local development and off in production unless you turn it on there.
 
 ## The API
 

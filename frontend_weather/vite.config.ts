@@ -9,7 +9,6 @@ export default defineConfig({
     babel({ presets: [reactCompilerPreset()] })
   ],
   server: {
-    // Used once VITE_USE_MOCKS is off and Django is running locally.
     proxy: {
       '/api': 'http://localhost:8000',
     },

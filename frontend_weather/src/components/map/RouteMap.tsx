@@ -135,7 +135,7 @@ export function RouteMap({
           </>
         )}
       </Map>
-      <RiskLegend intervalMiles={plan?.checkpoint_interval_miles ?? null} />
+      <RiskLegend gapsMiles={plan?.checkpoint_gaps_miles ?? null} />
     </>
   );
 }
